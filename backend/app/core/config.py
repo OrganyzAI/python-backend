@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+    # Redis connection URL. Default points to the compose service `redis`.
+    REDIS_URL: str = "redis://redis:6379/0"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
