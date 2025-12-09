@@ -80,7 +80,4 @@ services:
     ports:
       - 9323:9323
 
-networks:
-  traefik-public:
-    # For local dev, don't expect an external Traefik network
-    external: false
+# Traefik network removed for local dev
