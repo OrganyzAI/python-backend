@@ -6,15 +6,15 @@
 ## Technology Stack and Features
 
 - ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
-    - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
-    - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
-    - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
+  - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
+  - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
+  - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
 - 🚀 [React](https://react.dev) for the frontend.
-    - 💃 Using TypeScript, hooks, Vite, and other parts of a modern frontend stack.
-    - 🎨 [Chakra UI](https://chakra-ui.com) for the frontend components.
-    - 🤖 An automatically generated frontend client.
-    - 🧪 [Playwright](https://playwright.dev) for End-to-End testing.
-    - 🦇 Dark mode support.
+  - 💃 Using TypeScript, hooks, Vite, and other parts of a modern frontend stack.
+  - 🎨 [Chakra UI](https://chakra-ui.com) for the frontend components.
+  - 🤖 An automatically generated frontend client.
+  - 🧪 [Playwright](https://playwright.dev) for End-to-End testing.
+  - 🦇 Dark mode support.
 - 🐋 [Docker Compose](https://www.docker.com) for development and production.
 - 🔒 Secure password hashing by default.
 - 🔑 JWT (JSON Web Token) authentication.
@@ -153,6 +153,22 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 Copy the content and use that as password / secret key. And run that again to generate another secure key.
 
 ## How To Use It - Alternative With Copier
+
+## PostgreSQL 18 + pgvector (local Docker)
+
+This project includes a Docker image to run PostgreSQL 18 with the `pgvector` v0.8 extension built-in.
+
+- Build and start the full stack (uses the custom image for the `db` service):
+
+```bash
+docker compose up --build -d
+```
+
+- The container image is built from `docker/postgres-pgvector/Dockerfile` and the initialization SQL
+  `docker/postgres-pgvector/initdb/01-enable-pgvector.sql` creates the `vector` extension on first
+  initialization.
+
+If you prefer to use a pre-built image, modify `docker-compose.yml` to point `db.image` to your image.
 
 This repository also supports generating a new project using [Copier](https://copier.readthedocs.io).
 
