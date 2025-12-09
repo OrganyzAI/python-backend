@@ -1,7 +1,9 @@
 services:
 
   db:
-    image: postgres:17
+    build:
+      context: ./docker/postgres-pgvector
+    image: organyz/postgres-pgvector:18
     restart: always
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
@@ -18,6 +20,8 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+
+  # adminer service removed for dev environment
 
   prestart:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
@@ -91,7 +95,6 @@ services:
 
     build:
       context: ./backend
-    # Traefik labels removed for dev environment
 
   frontend:
     image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
@@ -103,19 +106,6 @@ services:
       args:
         - VITE_API_URL=https://api.${DOMAIN?Variable not set}
         - NODE_ENV=production
-    # Traefik labels removed for dev environment
-
-    # Redis service added for dev/test usage
-  redis:
-    image: redis:7-alpine
-    restart: always
-    ports:
-      - "6379:6379"
-    networks:
-      - default
 
 volumes:
   app-db-data:
-
-
-networks: # Traefik network removed for dev/test environment
