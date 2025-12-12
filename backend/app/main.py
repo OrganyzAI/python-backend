@@ -3,6 +3,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
+import asyncio
 
 from app.api.main import api_router
 from app.core.config import settings
@@ -14,6 +15,7 @@ from app.middlewares.rate_limiter import RateLimiterMiddleware
 # redis client and threading utils
 from app.core.redis import RedisClient
 from app.utils_helper.threading import ThreadingUtils
+from app.api.websocket_manager import WebSocketManager
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -54,6 +56,13 @@ async def startup_event():
     # Initialize redis client and attach to app.state
     try:
         app.state.redis = await RedisClient.get_client()
+        # Initialize WebSocket manager and start Redis listener
+        try:
+            app.state.ws_manager = WebSocketManager(app.state.redis)
+            # start the manager which spawns a background redis subscription
+            await app.state.ws_manager.start()
+        except Exception as e:
+            logging.getLogger(__name__).warning(f"WS manager init failed: {e}")
     except Exception as e:
         logging.getLogger(__name__).warning(f"Redis init failed: {e}")
 
@@ -67,3 +76,9 @@ async def shutdown_event():
         await RedisClient.close()
     except Exception as e:
         logging.getLogger(__name__).warning(f"Redis close failed: {e}")
+    # stop websocket manager if present
+    try:
+        if getattr(app.state, "ws_manager", None):
+            await app.state.ws_manager.stop()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"WS manager stop failed: {e}")
