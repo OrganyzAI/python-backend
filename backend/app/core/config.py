@@ -57,6 +57,19 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = ""
     # Redis connection URL. Default points to the compose service `redis`.
     REDIS_URL: str = "redis://redis:6379/0"
+    # Celery broker/result backend. By default reuse `REDIS_URL` so you can
+    # configure an Upstash or other hosted Redis via `REDIS_URL` or explicitly
+    # via `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` env vars.
+    CELERY_BROKER_URL: str | None = None
+    CELERY_RESULT_BACKEND: str | None = None
+
+    # Cloudflare R2 (S3 compatible) settings
+    R2_ENABLED: bool = False
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET: str | None = None
+    R2_ENDPOINT_URL: AnyUrl | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -91,6 +104,39 @@ class Settings(BaseSettings):
     @property
     def emails_enabled(self) -> bool:
         return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def r2_endpoint(self) -> str | None:
+        """Return explicit endpoint URL if set, otherwise construct from account id."""
+        if self.R2_ENDPOINT_URL:
+            return str(self.R2_ENDPOINT_URL)
+        if self.R2_ACCOUNT_ID:
+            return f"https://{self.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+        return None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def r2_enabled(self) -> bool:
+        """Whether R2 integration is configured/enabled."""
+        if not self.R2_ENABLED:
+            return False
+        return bool(self.R2_BUCKET and self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def r2_boto3_config(self) -> dict[str, Any]:
+        """Return a dict of kwargs suitable for boto3/aioboto3 client creation."""
+        if not self.r2_enabled:
+            return {}
+        cfg: dict[str, Any] = {
+            "aws_access_key_id": self.R2_ACCESS_KEY_ID,
+            "aws_secret_access_key": self.R2_SECRET_ACCESS_KEY,
+        }
+        endpoint = self.r2_endpoint
+        if endpoint:
+            cfg["endpoint_url"] = endpoint
+        return cfg
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr
