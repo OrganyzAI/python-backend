@@ -1,3 +1,4 @@
+import logging
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -5,6 +6,14 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
+
+# middlewares
+from app.middlewares.logger import RequestLoggerMiddleware
+from app.middlewares.rate_limiter import RateLimiterMiddleware
+
+# redis client and threading utils
+from app.core.redis import RedisClient
+from app.utils_helper.threading import ThreadingUtils
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -31,3 +40,30 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Register additional middlewares
+app.add_middleware(RequestLoggerMiddleware)
+app.add_middleware(RateLimiterMiddleware, requests_per_minute=100)
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Configure basic logging
+    logging.basicConfig(level=logging.INFO)
+
+    # Initialize redis client and attach to app.state
+    try:
+        app.state.redis = await RedisClient.get_client()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Redis init failed: {e}")
+
+    # Attach threading utilities to app state for global access
+    app.state.threading = ThreadingUtils
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    try:
+        await RedisClient.close()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Redis close failed: {e}")
