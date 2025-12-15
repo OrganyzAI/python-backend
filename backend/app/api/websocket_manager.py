@@ -8,13 +8,6 @@ logger = logging.getLogger(__name__)
 
 
 class WebSocketManager:
-    """Manage WebSocket connections and Redis pub/sub bridging.
-
-    - Keeps in-memory mapping of rooms -> WebSocket connections for local broadcasts.
-    - Subscribes to Redis channels `ws:{room}` and broadcasts published messages
-      to local connections so multiple app instances stay in sync.
-    """
-
     def __init__(self, redis_client):
         self.redis = redis_client
         self.connections: Dict[str, Set[WebSocket]] = {}
@@ -24,7 +17,6 @@ class WebSocketManager:
     async def start(self) -> None:
         try:
             self._pubsub = self.redis.pubsub()
-            # Subscribe to all ws channels using pattern subscription
             await self._pubsub.psubscribe("ws:*")
             self._listen_task = asyncio.create_task(self._reader_loop())
             logger.info("WebSocketManager redis listener started")
@@ -64,7 +56,7 @@ class WebSocketManager:
         except Exception as e:
             logger.warning(f"Failed to publish websocket message: {e}")
 
-    async def connect(self, websocket: WebSocket, room: str) -> None:
+    async def connect(self, websocket: WebSocket, room: str, user_id: str | None = None) -> None:
         await websocket.accept()
         self.connections.setdefault(room, set()).add(websocket)
 
@@ -85,8 +77,7 @@ class WebSocketManager:
             try:
                 await ws.send_text(message)
             except Exception:
-                # ignore send errors; disconnect will clean up
-                pass
+                logger.exception("Error sending websocket message to local connection")
 
     async def stop(self) -> None:
         if self._listen_task:
@@ -94,9 +85,9 @@ class WebSocketManager:
             try:
                 await self._listen_task
             except Exception:
-                pass
+                logger.exception("Error waiting for websocket listener task to stop")
         if self._pubsub:
             try:
                 await self._pubsub.close()
             except Exception:
-                pass
+                logger.exception("Error closing websocket pubsub")

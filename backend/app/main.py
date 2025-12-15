@@ -1,3 +1,6 @@
+import sys
+sys.dont_write_bytecode = True
+
 import logging
 import sentry_sdk
 from fastapi import FastAPI
@@ -11,9 +14,18 @@ from app.core.config import settings
 # middlewares
 from app.middlewares.logger import RequestLoggerMiddleware
 from app.middlewares.rate_limiter import RateLimiterMiddleware
+from app.middlewares.error_handler import (
+    app_exception_handler,
+    validation_exception_handler,
+    http_exception_handler,
+    unhandled_exception_handler,
+)
+from app.core.exceptions import AppException
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # redis client and threading utils
-from app.core.redis import RedisClient
+from app.core.redis import create_redis_client, close_redis_pool
 from app.utils_helper.threading import ThreadingUtils
 from app.api.websocket_manager import WebSocketManager
 
@@ -47,6 +59,12 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(RateLimiterMiddleware, requests_per_minute=100)
 
+# Register global exception handlers
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -55,7 +73,7 @@ async def startup_event():
 
     # Initialize redis client and attach to app.state
     try:
-        app.state.redis = await RedisClient.get_client()
+        app.state.redis = await create_redis_client()
         # Initialize WebSocket manager and start Redis listener
         try:
             app.state.ws_manager = WebSocketManager(app.state.redis)
@@ -73,7 +91,13 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     try:
-        await RedisClient.close()
+        # Close long-lived redis client and disconnect pool
+        if getattr(app.state, "redis", None):
+            try:
+                await app.state.redis.close()
+            except Exception:
+                logging.getLogger(__name__).warning("Redis client close failed")
+        await close_redis_pool()
     except Exception as e:
         logging.getLogger(__name__).warning(f"Redis close failed: {e}")
     # stop websocket manager if present

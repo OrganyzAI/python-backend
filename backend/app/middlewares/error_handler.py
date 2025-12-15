@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.exceptions import AppException
 from app.schemas.response import ResponseSchema
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ async def app_exception_handler(request: Request, exc: AppException):
             message=exc.message,
             errors=exc.details,
             data=None
-        ).model_dump()
+        ).model_dump(exclude_none=True)
     )
 
 
@@ -40,7 +41,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             message="Validation error",
             errors=errors,
             data=None
-        ).model_dump()
+        ).model_dump(exclude_none=True)
     )
 
 
@@ -53,7 +54,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             message=exc.detail,
             errors=None,
             data=None
-        ).model_dump()
+        ).model_dump(exclude_none=True)
     )
 
 
@@ -64,7 +65,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         content=ResponseSchema(
             success=False,
             message="Internal server error",
-            errors=str(exc) if request.app.state.settings.DEBUG else None,
+            errors=str(exc) if settings.DEBUG else None,
             data=None
-        ).model_dump()
+        ).model_dump(exclude_none=True)
     )

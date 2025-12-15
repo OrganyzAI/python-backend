@@ -1,55 +1,62 @@
 import time
+import uuid
+from typing import Callable, Optional
 from fastapi import Request, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Callable, Dict
-from collections import defaultdict
-import asyncio
+from redis.asyncio import Redis
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, requests_per_minute: int = 100):
+
+    def __init__(self, app, requests_per_minute: int = 100, window_seconds: int = 60):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
-        self.requests: Dict[str, list] = defaultdict(list)
-        self.cleanup_interval = 60
-        self._start_cleanup_task()
+        self.window = window_seconds
 
-    def _start_cleanup_task(self):
-        asyncio.create_task(self._cleanup_old_requests())
-
-    async def _cleanup_old_requests(self):
-        while True:
-            await asyncio.sleep(self.cleanup_interval)
-            current_time = time.time()
-            for ip in list(self.requests.keys()):
-                self.requests[ip] = [
-                    req_time for req_time in self.requests[ip]
-                    if current_time - req_time < 60
-                ]
-                if not self.requests[ip]:
-                    del self.requests[ip]
+    async def _get_redis(self) -> Optional[Redis]:
+        redis = getattr(self.app.state, "redis", None)
+        return redis
 
     async def dispatch(self, request: Request, call_next: Callable):
-        client_ip = request.client.host
-        current_time = time.time()
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        window_start = now - self.window
 
-        self.requests[client_ip] = [
-            req_time for req_time in self.requests[client_ip]
-            if current_time - req_time < 60
-        ]
+        redis = await self._get_redis()
 
-        if len(self.requests[client_ip]) >= self.requests_per_minute:
+        if not redis:
+            response = await call_next(request)
+            response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
+            response.headers["X-RateLimit-Remaining"] = "-1"
+            return response
+
+        key = f"rate_limit:{client_ip}"
+
+        member = f"{now}-{uuid.uuid4().hex}"
+
+        try:
+            pipe = redis.pipeline()
+            pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zadd(key, {member: now})
+            pipe.zcard(key)
+            pipe.expire(key, self.window)
+            results = await pipe.execute()
+            current_count = int(results[2]) if len(results) >= 3 and results[2] is not None else 0
+        except Exception:
+            response = await call_next(request)
+            response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
+            response.headers["X-RateLimit-Remaining"] = "-1"
+            return response
+
+        remaining = max(0, self.requests_per_minute - current_count)
+
+        if current_count > self.requests_per_minute:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Rate limit exceeded. Please try again later."
             )
 
-        self.requests[client_ip].append(current_time)
         response = await call_next(request)
-
         response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(
-            self.requests_per_minute - len(self.requests[client_ip])
-        )
-
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
