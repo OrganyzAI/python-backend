@@ -14,8 +14,15 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         self.window = window_seconds
 
     async def _get_redis(self) -> Optional[Redis]:
-        redis = getattr(self.app.state, "redis", None)
-        return redis
+        current = getattr(self, "app", None)
+        seen = set()
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            state = getattr(current, "state", None)
+            if state is not None:
+                return getattr(state, "redis", None)
+            current = getattr(current, "app", None)
+        return None
 
     async def dispatch(self, request: Request, call_next: Callable):
         client_ip = request.client.host if request.client else "unknown"

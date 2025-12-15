@@ -46,6 +46,17 @@ services:
       - "1080:1080"
       - "1025:1025"
 
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    ports:
+      - "6379:6379"
+
+    networks:
+      - default
+    volumes:
+      - redis-data:/data
+
   frontend:
     restart: "no"
     ports:
@@ -81,3 +92,6 @@ services:
       - 9323:9323
 
 # Traefik network removed for local dev
+
+volumes:
+  redis-data:

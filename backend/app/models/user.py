@@ -19,3 +19,22 @@ class User(SQLModel, table=True):
 
     # One-to-many relationship
     otp: List["OTP"] = Relationship(back_populates="user")
+
+
+# Pydantic/SQLModel helper schemas used by the tests and API
+class UserBase(SQLModel):
+    email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserUpdate(SQLModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    password: Optional[str] = None
+    phone_number: Optional[str] = None

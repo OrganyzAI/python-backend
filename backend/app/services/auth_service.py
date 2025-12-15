@@ -40,6 +40,24 @@ class AuthService:
             return None
         return user
 
+
+# Module-level helper for legacy tests that expect `app.services.auth_service.create_user`
+def create_user(session, user_create) -> User:
+    """Create a user using a DB session and a `UserCreate` like object.
+
+    This helper mirrors the behavior expected by older tests that import
+    `app.services.auth_service as crud` and call `crud.create_user(...)`.
+    """
+    if not getattr(user_create, "email", None) or not getattr(user_create, "password", None):
+        raise ValueError(MSG.AUTH["ERROR"]["EMAIL_AND_PASSWORD_REQUIRED"])
+
+    hashed = security.get_password_hash(user_create.password)
+    user = User(email=user_create.email, hashed_password=hashed, first_name=getattr(user_create, "first_name", None), last_name=getattr(user_create, "last_name", None), phone_number=getattr(user_create, "phone_number", None))
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
     async def login(self, email: str, password: str) -> dict[str, Any]:
         user = await self.authenticate_user(email, password)
         if not user:
