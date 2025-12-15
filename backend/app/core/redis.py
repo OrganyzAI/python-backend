@@ -1,37 +1,64 @@
-import redis.asyncio as aioredis
-from typing import Optional
+import asyncio
 import json
 import logging
+from typing import Optional, AsyncGenerator
+
+import redis.asyncio as aioredis
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-
-class RedisClient:
-    _instance: Optional[aioredis.Redis] = None
-
-    @classmethod
-    async def get_client(cls) -> aioredis.Redis:
-        if cls._instance is None:
-            cls._instance = await aioredis.from_url(
-                settings.REDIS_URL,
-                encoding="utf-8",
-                decode_responses=True,
-                max_connections=50
-            )
-            logger.info("Redis client initialized")
-        return cls._instance
-
-    @classmethod
-    async def close(cls):
-        if cls._instance:
-            await cls._instance.close()
-            cls._instance = None
-            logger.info("Redis client closed")
+_redis_pool: Optional[aioredis.ConnectionPool] = None
+_pool_lock = asyncio.Lock()
 
 
-async def get_redis() -> aioredis.Redis:
-    return await RedisClient.get_client()
+async def get_redis_pool() -> aioredis.ConnectionPool:
+    global _redis_pool
+    if _redis_pool is None:
+        async with _pool_lock:
+            if _redis_pool is None:
+                _redis_pool = aioredis.ConnectionPool.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    max_connections=50,
+                    socket_connect_timeout=5,
+                    health_check_interval=30,
+                )
+                logger.info("Redis connection pool created")
+    return _redis_pool
+
+
+async def get_redis() -> AsyncGenerator[aioredis.Redis, None]:
+    pool = await get_redis_pool()
+    redis = aioredis.Redis(connection_pool=pool)
+    try:
+        yield redis
+    finally:
+        try:
+            await redis.close()
+        except Exception:
+            logger.exception("Error closing temporary Redis client")
+
+
+async def create_redis_client() -> aioredis.Redis:
+    pool = await get_redis_pool()
+    client = aioredis.Redis(connection_pool=pool)
+    logger.info("Redis client created from pool")
+    return client
+
+
+async def close_redis_pool():
+    global _redis_pool
+    if _redis_pool is not None:
+        try:
+            await _redis_pool.disconnect()
+            logger.info("Redis connection pool disconnected")
+        except Exception:
+            logger.exception("Error disconnecting Redis pool")
+        finally:
+            _redis_pool = None
 
 
 class CacheService:

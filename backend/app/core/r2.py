@@ -1,12 +1,3 @@
-"""Simple async Cloudflare R2 (S3-compatible) helpers using aioboto3.
-
-This module provides small wrappers for common operations used by the
-application: upload, download, delete and generating presigned URLs.
-
-Usage:
-  await upload_bytes("path/to/key", b"data")
-  data = await download_bytes("path/to/key")
-"""
 from __future__ import annotations
 
 from typing import Optional

@@ -1,11 +1,15 @@
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Any
 from functools import wraps
 
 
 class ThreadingUtils:
-    executor = ThreadPoolExecutor(max_workers=10)
+    # Dynamic sizing: base workers on CPU count, capped to reasonable limits
+    _cpu = os.cpu_count() or 1
+    _max_workers = min(32, max(2, _cpu * 5))
+    executor = ThreadPoolExecutor(max_workers=_max_workers)
 
     @staticmethod
     async def run_in_thread(func: Callable, *args, **kwargs) -> Any:
