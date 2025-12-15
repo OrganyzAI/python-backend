@@ -2,8 +2,11 @@
 
 ## Latest Changes
 
+## 0.9.0
+
 ### Features
 
+* ✨ Add meta title support to all pages. PR [#2039](https://github.com/fastapi/full-stack-fastapi-template/pull/2039) by [@alejsdev](https://github.com/alejsdev).
 * 🛂 Migrate frontend to Shadcn. PR [#2010](https://github.com/fastapi/full-stack-fastapi-template/pull/2010) by [@alejsdev](https://github.com/alejsdev).
 
 ### Fixes
@@ -54,10 +57,19 @@
 
 ### Docs
 
+* 📝 Add Mailcatcher setup instructions for local email testing. PR [#2038](https://github.com/fastapi/full-stack-fastapi-template/pull/2038) by [@alejsdev](https://github.com/alejsdev).
+* 📝 Update `README` to include link for Vite. PR [#2037](https://github.com/fastapi/full-stack-fastapi-template/pull/2037) by [@alejsdev](https://github.com/alejsdev).
+* 📝 Fix outdated workflow badge. PR [#2028](https://github.com/fastapi/full-stack-fastapi-template/pull/2028) by [@AymanAlSuleihi](https://github.com/AymanAlSuleihi).
+* 📝 Update docs. PR [#2036](https://github.com/fastapi/full-stack-fastapi-template/pull/2036) by [@alejsdev](https://github.com/alejsdev).
 * ✏️ Fix small typo in `deployment.md`. PR [#1679](https://github.com/fastapi/full-stack-fastapi-template/pull/1679) by [@cassmtnr](https://github.com/cassmtnr).
 
 ### Internal
 
+* 🔥 Remove unused dependencies. PR [#2035](https://github.com/fastapi/full-stack-fastapi-template/pull/2035) by [@alejsdev](https://github.com/alejsdev).
+* ⬆ Bump react-dom from 19.2.0 to 19.2.1 in /frontend. PR [#2032](https://github.com/fastapi/full-stack-fastapi-template/pull/2032) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump vite from 7.2.6 to 7.2.7 in /frontend. PR [#2033](https://github.com/fastapi/full-stack-fastapi-template/pull/2033) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @tanstack/router-plugin from 1.139.12 to 1.140.0 in /frontend. PR [#2034](https://github.com/fastapi/full-stack-fastapi-template/pull/2034) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump lucide-react from 0.555.0 to 0.556.0 in /frontend. PR [#2031](https://github.com/fastapi/full-stack-fastapi-template/pull/2031) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * 🔧 Add Tailwind CSS directives support in biome config. PR [#2029](https://github.com/fastapi/full-stack-fastapi-template/pull/2029) by [@alejsdev](https://github.com/alejsdev).
 * ⬆ Bump react-hook-form from 7.66.1 to 7.67.0 in /frontend. PR [#2018](https://github.com/fastapi/full-stack-fastapi-template/pull/2018) by [@dependabot[bot]](https://github.com/apps/dependabot).
 * ⬆ Bump @tanstack/react-query from 5.90.10 to 5.90.11 in /frontend. PR [#2019](https://github.com/fastapi/full-stack-fastapi-template/pull/2019) by [@dependabot[bot]](https://github.com/apps/dependabot).
