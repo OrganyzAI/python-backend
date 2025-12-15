@@ -33,7 +33,6 @@ services:
       - .env
     environment:
       - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -65,7 +64,6 @@ services:
       - .env
     environment:
       - DOMAIN=${DOMAIN}
-      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -93,16 +91,7 @@ services:
     # Traefik labels removed for dev environment
 
   frontend:
-    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
-    restart: always
-    networks:
-      - default
-    build:
-      context: ./frontend
-      args:
-        - VITE_API_URL=https://api.${DOMAIN?Variable not set}
-        - NODE_ENV=production
-    # Traefik labels removed for dev environment
+    # frontend removed for test/dev environment
 
     # Redis service added for dev/test usage
   redis:
