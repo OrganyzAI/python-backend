@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:17
     restart: always
@@ -114,8 +113,12 @@ services:
     networks:
       - default
 
+    volumes:
+      - redis-data:/data
+
 volumes:
   app-db-data:
+  redis-data:
 
 
 networks: # Traefik network removed for dev/test environment

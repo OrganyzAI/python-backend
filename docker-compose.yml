@@ -21,6 +21,17 @@ services:
       - POSTGRES_USER=${POSTGRES_USER?Variable not set}
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
 
+  redis:
+    image: redis:7
+    restart: always
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   adminer:
     image: adminer
     restart: always
@@ -55,6 +66,9 @@ services:
       db:
         condition: service_healthy
         restart: true
+      redis:
+        condition: service_healthy
+        restart: true
     command: bash scripts/prestart.sh
     env_file:
       - .env
@@ -85,6 +99,9 @@ services:
       - default
     depends_on:
       db:
+        condition: service_healthy
+        restart: true
+      redis:
         condition: service_healthy
         restart: true
       prestart:
@@ -166,6 +183,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-http.middlewares=https-redirect
 volumes:
   app-db-data:
+  redis-data:
 
 
 networks:
