@@ -142,6 +142,10 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # WebEngage transactional email settings
+    WEBENGAGE_API_URL: HttpUrl | None = None
+    WEBENGAGE_API_KEY: str | None = None
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
@@ -162,6 +166,12 @@ class Settings(BaseSettings):
         )
 
         return self
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def webengage_enabled(self) -> bool:
+        """Whether WebEngage transactional email integration is configured."""
+        return bool(self.WEBENGAGE_API_URL and self.WEBENGAGE_API_KEY)
 
 
 settings = Settings()  # type: ignore

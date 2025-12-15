@@ -15,13 +15,29 @@ class WebSocketManager:
         self._listen_task: asyncio.Task | None = None
 
     async def start(self) -> None:
-        try:
-            self._pubsub = self.redis.pubsub()
-            await self._pubsub.psubscribe("ws:*")
-            self._listen_task = asyncio.create_task(self._reader_loop())
-            logger.info("WebSocketManager redis listener started")
-        except Exception as e:
-            logger.warning(f"WebSocketManager start failed: {e}")
+        if not self.redis:
+            logger.warning("WebSocketManager start skipped: no redis client provided")
+            return
+
+        max_retries = 5
+        base_delay = 1.0
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await self.redis.ping()
+                if not result:
+                    raise Exception("Redis ping failed")
+                logger.info("Starting WebSocketManager redis listener: %s", getattr(self.redis, "pubsub", None))
+                self._pubsub = self.redis.pubsub()
+                await self._pubsub.psubscribe("ws:*")
+                self._listen_task = asyncio.create_task(self._reader_loop())
+                return
+            except Exception as e:
+                logger.error(f"WebSocketManager redis connection error on attempt {attempt}: {e}")
+                logger.warning(f"WebSocketManager start attempt {attempt} failed: {e}")
+                if attempt == max_retries:
+                    logger.warning("WebSocketManager failed to start after retries; continuing without Redis listener")
+                    return
+                await asyncio.sleep(base_delay * (2 ** (attempt - 1)))
 
     async def _reader_loop(self) -> None:
         try:
