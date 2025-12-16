@@ -1,4 +1,4 @@
-FROM postgres:18
+FROM postgres:17
 
 ENV PGVECTOR_VERSION=
 
@@ -11,7 +11,7 @@ RUN apt-get update \
     make \
     wget \
     libssl-dev \
-    postgresql-server-dev-18 \
+    postgresql-server-dev-17 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN if [ -z "${PGVECTOR_VERSION}" ]; then \

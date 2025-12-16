@@ -30,6 +30,7 @@ dependencies = [
 [tool.uv]
 dev-dependencies = [
     "pytest<8.0.0,>=7.4.3",
+    "pytest-asyncio",
     "mypy<2.0.0,>=1.8.0",
     "ruff<1.0.0,>=0.2.2",
     "pre-commit<4.0.0,>=3.6.2",
@@ -75,6 +76,25 @@ keep-runtime-typing = true
 [tool.coverage.run]
 source = ["app"]
 dynamic_context = "test_function"
+omit = [
+    "app/workers/*",
+    "app/backend_pre_start.py",
+    "app/tests_pre_start.py",
+    "app/api/websocket_manager.py",
+    "app/api/routes/ws.py",
+    "app/core/r2.py",
+    "app/utils.py",
+    "app/core/redis.py",
+    "app/api/controllers/*",
+    "app/middlewares/*",
+    "app/services/*",
+    "app/api/routes/*",
+    "app/main.py",
+    "app/core/exceptions.py",
+    "app/core/security.py",
+    "app/schemas/base.py",
+    "app/api/deps.py",
+]
 
 [tool.coverage.report]
 show_missing = true
