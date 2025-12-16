@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -10,6 +8,7 @@ from app.enums.otp_enum import OTPType
 
 if TYPE_CHECKING:
     from app.models.user import User
+
 
 class OTP(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
@@ -22,4 +21,4 @@ class OTP(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Many-to-one relationship
-    user: User | None = Relationship(back_populates="otp")
+    user: Optional["User"] = Relationship(back_populates="otp")

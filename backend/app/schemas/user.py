@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 
 from app.utils_helper.messages import MSG
 from app.utils_helper.regex import RegexClass
@@ -7,8 +7,9 @@ from app.utils_helper.regex import RegexClass
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
-    @validator('password')
-    def password_strength(self, v: str) -> str:
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
         if not RegexClass.is_strong_password(v):
             raise ValueError(MSG.VALIDATION["PASSWORD_TOO_WEAK"])
         return v
@@ -21,8 +22,9 @@ class RegisterSchema(BaseModel):
     password: str
     phone_number: str | None = None
 
-    @validator('password')
-    def password_strength(self, v: str) -> str:
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
         if not RegexClass.is_strong_password(v):
             raise ValueError(MSG.VALIDATION["PASSWORD_TOO_WEAK"])
         return v
