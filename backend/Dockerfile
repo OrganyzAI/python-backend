@@ -41,8 +41,4 @@ COPY ./tests /app/tests
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
 
-# Ensure coverage is available inside the uv-created virtualenv so test
-# commands like `python -m coverage` work when running inside the container.
-RUN /app/.venv/bin/python -m pip install --no-cache-dir coverage
-
 CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
