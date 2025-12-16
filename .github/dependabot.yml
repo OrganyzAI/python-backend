@@ -17,7 +17,6 @@ updates:
       prefix: ⬆
     labels: [dependencies, internal]
   # npm
-  # npm (frontend removed)
   # Docker
   - package-ecosystem: docker
     directories:
