@@ -74,7 +74,7 @@ services:
       - .env
     environment:
       - DOMAIN=${DOMAIN}
-      
+
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -110,7 +110,7 @@ services:
       - .env
     environment:
       - DOMAIN=${DOMAIN}
-      
+
       - ENVIRONMENT=${ENVIRONMENT}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
       - SECRET_KEY=${SECRET_KEY?Variable not set}
@@ -132,6 +132,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
     build:
       context: ./backend
@@ -152,7 +153,6 @@ services:
 
       # Enable redirection for HTTP and HTTPS
       - traefik.http.routers.${STACK_NAME?Variable not set}-backend-http.middlewares=https-redirect
-
   # frontend service removed
 volumes:
   app-db-data:
