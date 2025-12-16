@@ -18,7 +18,7 @@
 
   - Ensure `REDIS_URL` is configured in the project's environment (default: `redis://redis:6379/0`).
 
-- **Frontend example** (browser JS):
+-- **Browser example** (browser JS):
 
 ```js
 const ws = new WebSocket(`wss://your-backend.example.com/api/v1/ws/room-123`);

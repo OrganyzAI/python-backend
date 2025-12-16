@@ -90,9 +90,6 @@ services:
       context: ./backend
     # Traefik labels removed for dev environment
 
-  frontend:
-    # frontend removed for test/dev environment
-
     # Redis service added for dev/test usage
   redis:
     image: redis:7-alpine
