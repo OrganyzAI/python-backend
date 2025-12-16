@@ -18,7 +18,7 @@ async def get_redis_pool() -> aioredis.ConnectionPool:
     if _redis_pool is None:
         async with _pool_lock:
             if _redis_pool is None:
-                _redis_pool = aioredis.ConnectionPool.from_url(
+                maybe_pool = aioredis.ConnectionPool.from_url(
                     settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True,
@@ -26,6 +26,11 @@ async def get_redis_pool() -> aioredis.ConnectionPool:
                     socket_connect_timeout=5,
                     health_check_interval=30,
                 )
+                # support libraries that return a coroutine from from_url
+                if asyncio.iscoroutine(maybe_pool):
+                    _redis_pool = await maybe_pool
+                else:
+                    _redis_pool = maybe_pool
                 logger.info("Redis connection pool created")
     return _redis_pool
 

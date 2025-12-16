@@ -23,12 +23,28 @@ class WebSocketManager:
         base_delay = 1.0
         for attempt in range(1, max_retries + 1):
             try:
-                result = await self.redis.ping()
-                if not result:
-                    raise Exception("Redis ping failed")
+                # try ping if available, but tolerate missing ping (e.g. fake redis in tests)
+                ping = getattr(self.redis, "ping", None)
+                if ping is not None:
+                    result = await ping()
+                    if not result:
+                        raise Exception("Redis ping failed")
+
                 logger.info("Starting WebSocketManager redis listener: %s", getattr(self.redis, "pubsub", None))
-                self._pubsub = self.redis.pubsub()
-                await self._pubsub.psubscribe("ws:*")
+                # pubsub may be sync factory in fakes
+                pubsub_factory = getattr(self.redis, "pubsub", None)
+                if callable(pubsub_factory):
+                    self._pubsub = pubsub_factory()
+                else:
+                    self._pubsub = pubsub_factory
+
+                # subscribe (await if coroutine)
+                subscribe = getattr(self._pubsub, "psubscribe", None)
+                if subscribe is not None:
+                    maybe = subscribe("ws:*")
+                    if asyncio.iscoroutine(maybe):
+                        await maybe
+
                 self._listen_task = asyncio.create_task(self._reader_loop())
                 return
             except Exception as e:
@@ -100,6 +116,9 @@ class WebSocketManager:
             self._listen_task.cancel()
             try:
                 await self._listen_task
+            except asyncio.CancelledError:
+                # task was cancelled as expected
+                logger.info("WebSocketManager listener task cancelled during stop")
             except Exception:
                 logger.exception("Error waiting for websocket listener task to stop")
         if self._pubsub:

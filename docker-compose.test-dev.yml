@@ -102,9 +102,37 @@ services:
     volumes:
       - redis-data:/data
 
+  coverage:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    build:
+      context: ./backend
+    networks:
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+      prestart:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - PATH=/app/.venv/bin:$PATH
+    command: bash scripts/test.sh
+    # Expose coverage HTML to host
+    volumes:
+      - ./htmlcov:/app/htmlcov
+
 volumes:
   app-db-data:
   redis-data:
 
 
-networks: # Traefik network removed for dev/test environment
+networks:
+  # Traefik network removed for dev/test environment
+  default:
+    name: organyz_default
