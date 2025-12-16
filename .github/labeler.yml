@@ -1,3 +1,41 @@
+# Automatic labeler configuration
+# Maps changed files to labels applied by actions/labeler
+
+feature:
+  - "backend/**"
+  - "app/**"
+  - "src/**"
+
+docs:
+  - "README.md"
+  - "docs/**"
+  - "*.md"
+
+bug:
+  - "tests/**"
+  - "backend/tests/**"
+
+refactor:
+  - "**/*.py"
+  - "backend/**"
+
+internal:
+  - "docker/**"
+  - "deployment.md"
+  - ".github/**"
+
+security:
+  - "**/security/**"
+
+upgrade:
+  - "pyproject.toml"
+  - "requirements.txt"
+
+breaking:
+  - "alembic/**"
+
+lang-all:
+  - "translations/**"
 docs:
   - all:
       - changed-files:

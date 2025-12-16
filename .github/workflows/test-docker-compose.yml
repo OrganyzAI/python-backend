@@ -10,7 +10,6 @@ on:
       - synchronize
 
 jobs:
-
   test-docker-compose:
     runs-on: ubuntu-latest
     steps:
@@ -19,6 +18,30 @@ jobs:
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
       - run: docker compose up -d --wait backend adminer
-      - name: Test backend is up
-        run: curl http://localhost:8000/api/v1/utils/health-check
+      - name: Wait for backend health endpoint
+        run: |
+          set -e
+          echo "Waiting for backend health endpoint..."
+          for i in {1..24}; do
+            if curl -fsS http://localhost:8000/api/v1/utils/health-check; then
+              echo "backend healthy"
+              break
+            fi
+            echo "Waiting for backend... ($i/24)"
+            sleep 5
+          done
+
+      - name: Run tests with coverage
+        run: |
+          docker compose run --rm backend pytest --maxfail=1 -q --disable-warnings \
+            --cov=app --cov-report=xml:coverage.xml --cov-report=html:coverage_html
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.xml
+            coverage_html
+
       - run: docker compose down -v --remove-orphans

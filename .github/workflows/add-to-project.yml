@@ -11,8 +11,12 @@ jobs:
   add-to-project:
     name: Add to project
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/add-to-project@v1.0.2
+      - name: Add PR/Issue to project
+        uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/orgs/fastapi/projects/2
           github-token: ${{ secrets.GITHUB_TOKEN }}
