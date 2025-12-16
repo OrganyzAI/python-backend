@@ -5,9 +5,9 @@ router = APIRouter(prefix="/utils", tags=["utils"])
 
 
 @router.get("/health-check", status_code=200)
-async def health_check(request: Request):
+async def health_check(request: Request) -> JSONResponse:
     """Basic health-check endpoint. Returns service status and redis probe if available."""
-    result = {"status": "ok"}
+    result: dict[str, object] = {"status": "ok"}
     redis = getattr(request.app.state, "redis", None)
     try:
         if redis:

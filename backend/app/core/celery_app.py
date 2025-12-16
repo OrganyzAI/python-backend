@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from celery import Celery
+from celery import Celery  # type: ignore[import-untyped]
 
-from .config import settings
+from app.core.config import settings
 
 
 broker_url = settings.CELERY_BROKER_URL or settings.REDIS_URL

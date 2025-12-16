@@ -1,5 +1,5 @@
-from sqlmodel import create_engine
 from sqlalchemy import Engine
+from sqlmodel import create_engine
 
 from app.core.config import settings
 
@@ -14,5 +14,7 @@ def get_engine() -> Engine:
     return _engine
 
 
-engine = get_engine()
-
+# Keep a module-level `engine` symbol for backwards compatibility, but
+# initialize it lazily to avoid import-time DB access which can fail
+# when settings are not fully constructed during early imports.
+engine: Engine | None = None

@@ -1,7 +1,6 @@
 import hashlib
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Optional
 
 
 def generate_uuid() -> str:

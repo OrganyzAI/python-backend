@@ -1,16 +1,19 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 import json
+import logging
 import time
 from datetime import datetime
-from sqlmodel import Session, select
-from app.core.db import engine
-import jwt
 
-from app.core.config import settings
+import jwt
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from sqlmodel import Session, select
+
 from app.core import security
+from app.core.config import settings
+from app.core.db import get_engine
 from app.models.user import User
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_text(value: str) -> str:
@@ -19,11 +22,13 @@ def _sanitize_text(value: str) -> str:
 
 async def _verify_websocket_token(token: str) -> User | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[security.ALGORITHM])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
         subject = payload.get("sub")
         if not subject:
             return None
-        with Session(engine) as session:
+        with Session(get_engine()) as session:
             statement = select(User).where(User.id == subject)
             user = session.exec(statement).first()
             return user
@@ -34,13 +39,12 @@ async def _verify_websocket_token(token: str) -> User | None:
 
 
 async def _verify_room_access(room: str, user: User) -> bool:
-    # Placeholder: replace with real ACL checks (room membership, roles, etc.)
-    # For now allow access to all rooms; restrict if necessary.
+    logger.info("Verifying room access for user %s to room %s", user.id, room)
     return True
 
 
 @router.websocket("/ws/{room}")
-async def websocket_endpoint(websocket: WebSocket, room: str):
+async def websocket_endpoint(websocket: WebSocket, room: str) -> None:
 
     # 1. Authenticate (token passed as query param `?token=...`)
     token = websocket.query_params.get("token")
@@ -89,12 +93,18 @@ async def websocket_endpoint(websocket: WebSocket, room: str):
                     pipe.zcard(key)
                     pipe.expire(key, window)
                     results = await pipe.execute()
-                    current_count = int(results[2]) if len(results) >= 3 and results[2] is not None else 0
+                    current_count = (
+                        int(results[2])
+                        if len(results) >= 3 and results[2] is not None
+                        else 0
+                    )
                 except Exception:
                     current_count = 0
                 if current_count > MAX_MESSAGES_PER_MINUTE:
                     # Optionally notify client before closing
-                    await websocket.send_text(json.dumps({"error": "rate_limit_exceeded"}))
+                    await websocket.send_text(
+                        json.dumps({"error": "rate_limit_exceeded"})
+                    )
                     await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
                     break
 

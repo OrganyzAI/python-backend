@@ -1,16 +1,18 @@
 import logging
+
 from fastapi import Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.config import settings
 from app.core.exceptions import AppException
 from app.schemas.response import ResponseSchema
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-async def app_exception_handler(request: Request, exc: AppException):
+async def app_exception_handler(_request: Request, exc: AppException) -> JSONResponse:
     logger.error(f"AppException: {exc.message} - Details: {exc.details}")
     return JSONResponse(
         status_code=exc.status_code,
@@ -23,7 +25,9 @@ async def app_exception_handler(request: Request, exc: AppException):
     )
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
     errors = [
         {
             "field": ".".join(str(loc) for loc in err["loc"]),
@@ -45,7 +49,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+async def http_exception_handler(
+    _request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
     logger.error(f"HTTPException: {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
@@ -58,7 +64,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
-async def unhandled_exception_handler(request: Request, exc: Exception):
+async def unhandled_exception_handler(
+    _request: Request, exc: Exception
+) -> JSONResponse:
     logger.exception(f"Unhandled exception: {str(exc)}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

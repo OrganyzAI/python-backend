@@ -1,20 +1,27 @@
-from typing import Any, Dict, Type
+from typing import Any
 
 from fastapi.responses import JSONResponse
 from starlette import status
 
-from app.schemas.user import LoginSchema, RegisterSchema
+from app.core.exceptions import AppException
+from app.schemas.response import ResponseSchema
+from app.schemas.user import (
+    ForgotPasswordSchema,
+    LoginSchema,
+    RegisterSchema,
+    ResendEmailSchema,
+    ResetPasswordSchema,
+    VerifySchema,
+)
 from app.services.auth_service import AuthService
 from app.utils_helper.messages import Messages as MSG
-from app.schemas.response import ResponseSchema
-from app.core.exceptions import AppException
 
 
 class UserController:
 
     def __init__(self) -> None:
         self.service = AuthService()
-        self.response_class: Type[ResponseSchema] = ResponseSchema
+        self.response_class: type[ResponseSchema[Any]] = ResponseSchema
         self.error_class = AppException
 
     def _success(self, data: Any = None, message: str = "OK", status_code: int = status.HTTP_200_OK) -> JSONResponse:
@@ -44,20 +51,21 @@ class UserController:
         code = status_code
         if isinstance(message, self.error_class):
             exc = message
-            code = code or getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
+            fallback_status = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
+            code = code if code is not None else fallback_status if isinstance(fallback_status, int) else status.HTTP_400_BAD_REQUEST
             payload = self.response_class(
                 success=False,
                 message=getattr(exc, "message", str(exc)),
                 errors=getattr(exc, "details", None),
                 data=None,
             ).model_dump(exclude_none=True)
-            return JSONResponse(status_code=code, content=payload)
+            return JSONResponse(status_code=int(code), content=payload)
 
         if isinstance(message, Exception):
-            code = code or status.HTTP_400_BAD_REQUEST
+            code = code if code is not None else status.HTTP_400_BAD_REQUEST
             msg = str(message)
         else:
-            code = code or status.HTTP_400_BAD_REQUEST
+            code = code if code is not None else status.HTTP_400_BAD_REQUEST
             msg = str(message)
 
         payload = self.response_class(
@@ -67,51 +75,51 @@ class UserController:
             data=None,
         ).model_dump(exclude_none=True)
 
-        return JSONResponse(status_code=code, content=payload)
+        return JSONResponse(status_code=int(code), content=payload)
 
-    async def login(self, request: LoginSchema) -> Dict[str, Any]:
+    async def login(self, request: LoginSchema) -> JSONResponse:
         try:
             result = await self.service.login(request.email, request.password)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["USER_LOGGED_IN"], status_code=status.HTTP_200_OK)
         except Exception as exc:
             return self._error(exc)
 
-    async def register(self, request: RegisterSchema) -> Dict[str, Any]:
+    async def register(self, request: RegisterSchema) -> JSONResponse:
         try:
             result = await self.service.register(request.email, request.password, request.first_name , request.last_name , request.phone_number)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["USER_REGISTERED"], status_code=status.HTTP_201_CREATED)
         except Exception as exc:
             return self._error(exc)
 
-    async def verify(self) -> Dict[str, Any]:
+    async def verify(self, request: VerifySchema) -> JSONResponse:
         try:
-            result = await self.service.verify()
+            result = await self.service.verify(token=request.token)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["EMAIL_VERIFIED"], status_code=status.HTTP_200_OK)
         except Exception as exc:
             return self._error(exc)
 
-    async def forgot_password(self) -> Dict[str, Any]:
+    async def forgot_password(self, request: ForgotPasswordSchema) -> JSONResponse:
         try:
-            result = await self.service.forgot_password(email=None)
+            result = await self.service.forgot_password(email=request.email)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"], status_code=status.HTTP_200_OK)
         except Exception as exc:
             return self._error(exc)
 
-    async def reset_password(self) -> Dict[str, Any]:
+    async def reset_password(self, request: ResetPasswordSchema) -> JSONResponse:
         try:
-            result = await self.service.reset_password(token=None, new_password=None)
+            result = await self.service.reset_password(token=request.token, new_password=request.new_password)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["PASSWORD_HAS_BEEN_RESET"], status_code=status.HTTP_200_OK)
         except Exception as exc:
             return self._error(exc)
 
-    async def resend_email(self) -> Dict[str, Any]:
+    async def resend_email(self, request: ResendEmailSchema) -> JSONResponse:
         try:
-            result = await self.service.resend_email(email=None)
+            result = await self.service.resend_email(email=request.email)
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["VERIFICATION_EMAIL_RESENT"], status_code=status.HTTP_200_OK)
         except Exception as exc:
             return self._error(exc)
 
-    async def logout(self) -> Dict[str, Any]:
+    async def logout(self) -> JSONResponse:
         try:
             result = await self.service.logout()
             return self._success(data=result, message=MSG.AUTH["SUCCESS"]["LOGGED_OUT"], status_code=status.HTTP_200_OK)

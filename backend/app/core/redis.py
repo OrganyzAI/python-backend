@@ -1,15 +1,16 @@
 import asyncio
 import json
 import logging
-from typing import Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
-import redis.asyncio as aioredis
+import redis.asyncio as aioredis  # type: ignore[import-untyped]
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_redis_pool: Optional[aioredis.ConnectionPool] = None
+_redis_pool: aioredis.ConnectionPool | None = None
 _pool_lock = asyncio.Lock()
 
 
@@ -54,7 +55,7 @@ async def create_redis_client() -> aioredis.Redis:
     return client
 
 
-async def close_redis_pool():
+async def close_redis_pool() -> None:
     global _redis_pool
     if _redis_pool is not None:
         try:
@@ -70,7 +71,7 @@ class CacheService:
     def __init__(self, redis_client: aioredis.Redis):
         self.redis = redis_client
 
-    async def get(self, key: str) -> Optional[dict]:
+    async def get(self, key: str) -> dict[str, Any] | None:
         try:
             value = await self.redis.get(key)
             return json.loads(value) if value else None
@@ -78,13 +79,13 @@ class CacheService:
             logger.error(f"Redis GET error: {e}")
             return None
 
-    async def set(self, key: str, value: dict, expire: int = 3600):
+    async def set(self, key: str, value: dict[str, Any], expire: int = 3600) -> None:
         try:
             await self.redis.set(key, json.dumps(value), ex=expire)
         except Exception as e:
             logger.error(f"Redis SET error: {e}")
 
-    async def delete(self, key: str):
+    async def delete(self, key: str) -> None:
         try:
             await self.redis.delete(key)
         except Exception as e:
@@ -92,7 +93,8 @@ class CacheService:
 
     async def exists(self, key: str) -> bool:
         try:
-            return await self.redis.exists(key) > 0
+            exists_count = await self.redis.exists(key)
+            return bool(exists_count and exists_count > 0)
         except Exception as e:
             logger.error(f"Redis EXISTS error: {e}")
             return False
