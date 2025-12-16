@@ -26,7 +26,6 @@ from app.middlewares.logger import RequestLoggerMiddleware
 from app.middlewares.rate_limiter import RateLimiterMiddleware
 from app.utils_helper.threading import ThreadingUtils
 
-
 sys.dont_write_bytecode = True
 
 
@@ -102,27 +101,20 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.add_middleware(RequestLoggerMiddleware)
 app.add_middleware(RateLimiterMiddleware, requests_per_minute=100)
 
+
 # Wrapper handlers to satisfy FastAPI's exception handler signature typing
-async def _app_exception_handler(
-    request: Request, exc: Exception
-) -> Response:
+async def _app_exception_handler(request: Request, exc: Exception) -> Response:
     return await app_exception_handler(request, cast(AppException, exc))
 
 
-async def _validation_exception_handler(
-    request: Request, exc: Exception
-) -> Response:
+async def _validation_exception_handler(request: Request, exc: Exception) -> Response:
     return await validation_exception_handler(
         request, cast(RequestValidationError, exc)
     )
 
 
-async def _http_exception_handler(
-    request: Request, exc: Exception
-) -> Response:
-    return await http_exception_handler(
-        request, cast(StarletteHTTPException, exc)
-    )
+async def _http_exception_handler(request: Request, exc: Exception) -> Response:
+    return await http_exception_handler(request, cast(StarletteHTTPException, exc))
 
 
 # Register global exception handlers

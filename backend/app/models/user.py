@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -26,7 +24,7 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # One-to-many relationship
-    otp: list[OTP] = Relationship(back_populates="user")
+    otp: list["OTP"] = Relationship(back_populates="user")
 
 
 # Pydantic/SQLModel helper schemas used by the tests and API

@@ -1,7 +1,8 @@
 from typing import Any, Generic, TypeVar
+
 from pydantic import BaseModel, Field
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ResponseSchema(BaseModel, Generic[T]):
@@ -10,7 +11,8 @@ class ResponseSchema(BaseModel, Generic[T]):
     data: T | None = Field(default=None, description="Response data")
     errors: Any | None = Field(default=None, description="Error details")
     meta: Any | None = Field(
-        default=None, description="Additional metadata or pagination info"
+        default=None,
+        description="Additional metadata or pagination info",
     )
 
     class Config:
@@ -20,7 +22,7 @@ class ResponseSchema(BaseModel, Generic[T]):
                 "message": "Operation completed successfully",
                 "data": {"id": 1, "name": "Example"},
                 "errors": None,
-                "meta": {"timestamp": "2024-01-01T00:00:00"}
+                "meta": {"timestamp": "2024-01-01T00:00:00"},
             }
         }
 
