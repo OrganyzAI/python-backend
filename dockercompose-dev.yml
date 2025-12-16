@@ -94,13 +94,5 @@ services:
     build:
       context: ./backend
 
-  frontend:
-    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
-    restart: always
-    networks:
-      - default
-    build:
-      # frontend removed
-
 volumes:
   app-db-data:
