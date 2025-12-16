@@ -33,8 +33,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          # Run tests inside the backend container using coverage CLI
-          docker compose run --rm backend bash -lc "python -m coverage run -m pytest --maxfail=1 -q --disable-warnings && python -m coverage xml -o coverage.xml && python -m coverage html -d coverage_html"
+          # Bootstrap pip inside the backend container and install dev deps (coverage, pytest)
+          docker compose run --rm backend bash -lc "python - <<'PY'\nimport ensurepip, subprocess, sys\ntry:\n    ensurepip.bootstrap()\nexcept Exception:\n    pass\nsubprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip'])\nsubprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-cache-dir', 'coverage', 'pytest', 'pytest-asyncio'])\nPY\npython -m coverage run -m pytest --maxfail=1 -q --disable-warnings && python -m coverage xml -o coverage.xml && python -m coverage html -d coverage_html"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
