@@ -26,11 +26,14 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
             path = request.url.path
         except Exception:
             raw_path = request.scope.get("path") or request.scope.get("raw_path", "/")
-            path = raw_path.decode() if isinstance(raw_path, bytes | bytearray) else str(raw_path)
+            path = (
+                raw_path.decode()
+                if isinstance(raw_path, bytes | bytearray)
+                else str(raw_path)
+            )
 
         logger.info(
-            f"Request started: {request.method} {path} "
-            f"[Request ID: {request_id}]"
+            f"Request started: {request.method} {path} [Request ID: {request_id}]"
         )
 
         response = await call_next(request)
