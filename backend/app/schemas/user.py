@@ -7,6 +7,7 @@ from app.utils_helper.regex import RegexClass
 class LoginSchema(BaseModel):
     email: EmailStr
     password: str
+
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:

@@ -17,11 +17,8 @@ async def app_exception_handler(_request: Request, exc: AppException) -> JSONRes
     return JSONResponse(
         status_code=exc.status_code,
         content=ResponseSchema(
-            success=False,
-            message=exc.message,
-            errors=exc.details,
-            data=None
-        ).model_dump(exclude_none=True)
+            success=False, message=exc.message, errors=exc.details, data=None
+        ).model_dump(exclude_none=True),
     )
 
 
@@ -32,7 +29,7 @@ async def validation_exception_handler(
         {
             "field": ".".join(str(loc) for loc in err["loc"]),
             "message": err["msg"],
-            "type": err["type"]
+            "type": err["type"],
         }
         for err in exc.errors()
     ]
@@ -41,11 +38,8 @@ async def validation_exception_handler(
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=ResponseSchema(
-            success=False,
-            message="Validation error",
-            errors=errors,
-            data=None
-        ).model_dump(exclude_none=True)
+            success=False, message="Validation error", errors=errors, data=None
+        ).model_dump(exclude_none=True),
     )
 
 
@@ -56,11 +50,8 @@ async def http_exception_handler(
     return JSONResponse(
         status_code=exc.status_code,
         content=ResponseSchema(
-            success=False,
-            message=exc.detail,
-            errors=None,
-            data=None
-        ).model_dump(exclude_none=True)
+            success=False, message=exc.detail, errors=None, data=None
+        ).model_dump(exclude_none=True),
     )
 
 
@@ -74,6 +65,6 @@ async def unhandled_exception_handler(
             success=False,
             message="Internal server error",
             errors=str(exc) if settings.DEBUG else None,
-            data=None
-        ).model_dump(exclude_none=True)
+            data=None,
+        ).model_dump(exclude_none=True),
     )

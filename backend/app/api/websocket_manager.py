@@ -30,7 +30,10 @@ class WebSocketManager:
                     if not result:
                         raise Exception("Redis ping failed")
 
-                logger.info("Starting WebSocketManager redis listener: %s", getattr(self.redis, "pubsub", None))
+                logger.info(
+                    "Starting WebSocketManager redis listener: %s",
+                    getattr(self.redis, "pubsub", None),
+                )
                 # pubsub may be sync factory in fakes
                 pubsub_factory = getattr(self.redis, "pubsub", None)
                 if callable(pubsub_factory):
@@ -48,10 +51,14 @@ class WebSocketManager:
                 self._listen_task = asyncio.create_task(self._reader_loop())
                 return
             except Exception as e:
-                logger.error(f"WebSocketManager redis connection error on attempt {attempt}: {e}")
+                logger.error(
+                    f"WebSocketManager redis connection error on attempt {attempt}: {e}"
+                )
                 logger.warning(f"WebSocketManager start attempt {attempt} failed: {e}")
                 if attempt == max_retries:
-                    logger.warning("WebSocketManager failed to start after retries; continuing without Redis listener")
+                    logger.warning(
+                        "WebSocketManager failed to start after retries; continuing without Redis listener"
+                    )
                     return
                 await asyncio.sleep(base_delay * (2 ** (attempt - 1)))
 
@@ -88,7 +95,9 @@ class WebSocketManager:
         except Exception as e:
             logger.warning(f"Failed to publish websocket message: {e}")
 
-    async def connect(self, websocket: WebSocket, room: str, user_id: str | None = None) -> None:
+    async def connect(
+        self, websocket: WebSocket, room: str, user_id: str | None = None
+    ) -> None:
         await websocket.accept()
         self.connections.setdefault(room, set()).add(websocket)
 

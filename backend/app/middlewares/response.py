@@ -57,7 +57,11 @@ class ResponseFormatterMiddleware(BaseHTTPMiddleware):
                 message = None
                 errors: Any = None
                 if isinstance(original, dict):
-                    message = original.get("detail") or original.get("message") or str(original)
+                    message = (
+                        original.get("detail")
+                        or original.get("message")
+                        or str(original)
+                    )
                     errors = original.get("errors") or original.get("detail")
                 else:
                     message = str(original) if original is not None else "Error"
@@ -86,7 +90,9 @@ class ResponseFormatterMiddleware(BaseHTTPMiddleware):
                         data_payload = original.get("data")
                         if isinstance(data_payload, dict) and "message" in data_payload:
                             # remove nested message inside data
-                            data_payload = {k: v for k, v in data_payload.items() if k != "message"}
+                            data_payload = {
+                                k: v for k, v in data_payload.items() if k != "message"
+                            }
 
                 new_content = ResponseSchema(
                     success=True,
@@ -96,5 +102,9 @@ class ResponseFormatterMiddleware(BaseHTTPMiddleware):
                 ).model_dump(exclude_none=True)
 
         # Preserve headers (except content-length which will be recalculated)
-        headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-        return JSONResponse(status_code=status_code, content=new_content, headers=headers)
+        headers = {
+            k: v for k, v in response.headers.items() if k.lower() != "content-length"
+        }
+        return JSONResponse(
+            status_code=status_code, content=new_content, headers=headers
+        )

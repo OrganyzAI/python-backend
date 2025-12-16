@@ -13,9 +13,10 @@ async def send_email(
     from_email: str | None = None,
     from_name: str | None = None,
 ) -> dict[str, Any]:
-
     if not settings.webengage_enabled:
-        raise RuntimeError("WebEngage is not configured (WEBENGAGE_API_URL/KEY missing)")
+        raise RuntimeError(
+            "WebEngage is not configured (WEBENGAGE_API_URL/KEY missing)"
+        )
 
     url = str(settings.WEBENGAGE_API_URL)
     headers = {

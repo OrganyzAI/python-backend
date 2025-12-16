@@ -45,7 +45,6 @@ async def _verify_room_access(room: str, user: User) -> bool:
 
 @router.websocket("/ws/{room}")
 async def websocket_endpoint(websocket: WebSocket, room: str) -> None:
-
     # 1. Authenticate (token passed as query param `?token=...`)
     token = websocket.query_params.get("token")
     if not token:

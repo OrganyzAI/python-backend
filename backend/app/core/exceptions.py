@@ -8,7 +8,6 @@ class ErrorResponse(TypedDict):
 
 
 class AppException(Exception):
-
     def __init__(
         self,
         message: str = "Application error",
@@ -32,13 +31,11 @@ class AppException(Exception):
 
 
 class NotFoundException(AppException):
-
     def __init__(self, message: str = "Not found", details: Any | None = None) -> None:
         super().__init__(message=message, status_code=404, details=details)
 
 
 class UnauthorizedException(AppException):
-
     def __init__(
         self, message: str = "Unauthorized", details: Any | None = None
     ) -> None:
@@ -46,6 +43,5 @@ class UnauthorizedException(AppException):
 
 
 class ForbiddenException(AppException):
-
     def __init__(self, message: str = "Forbidden", details: Any | None = None) -> None:
         super().__init__(message=message, status_code=403, details=details)

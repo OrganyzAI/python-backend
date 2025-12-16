@@ -10,8 +10,9 @@ from starlette.types import ASGIApp
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
-
-    def __init__(self, app: ASGIApp, requests_per_minute: int = 100, window_seconds: int = 60) -> None:
+    def __init__(
+        self, app: ASGIApp, requests_per_minute: int = 100, window_seconds: int = 60
+    ) -> None:
         super().__init__(app)
         self.requests_per_minute: int = requests_per_minute
         self.window: int = window_seconds
@@ -59,7 +60,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             if current_count > self.requests_per_minute:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Rate limit exceeded. Please try again later."
+                    detail="Rate limit exceeded. Please try again later.",
                 )
 
             response = await call_next(request)
@@ -78,7 +79,9 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             pipe.zcard(key)
             pipe.expire(key, self.window)
             results = await pipe.execute()
-            current_count = int(results[2]) if len(results) >= 3 and results[2] is not None else 0
+            current_count = (
+                int(results[2]) if len(results) >= 3 and results[2] is not None else 0
+            )
         except Exception:
             response = await call_next(request)
             response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
@@ -90,7 +93,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if current_count > self.requests_per_minute:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Please try again later."
+                detail="Rate limit exceeded. Please try again later.",
             )
 
         response = await call_next(request)
