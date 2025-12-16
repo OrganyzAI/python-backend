@@ -1,19 +1,22 @@
 import time
 import uuid
-from typing import Callable, Optional
-from fastapi import Request, HTTPException, status
+from collections.abc import Awaitable, Callable
+
+from fastapi import HTTPException, Request, status
+from fastapi.responses import Response
+from redis.asyncio import Redis  # type: ignore[import-untyped]
 from starlette.middleware.base import BaseHTTPMiddleware
-from redis.asyncio import Redis
+from starlette.types import ASGIApp
 
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
 
-    def __init__(self, app, requests_per_minute: int = 100, window_seconds: int = 60):
+    def __init__(self, app: ASGIApp, requests_per_minute: int = 100, window_seconds: int = 60) -> None:
         super().__init__(app)
-        self.requests_per_minute = requests_per_minute
-        self.window = window_seconds
+        self.requests_per_minute: int = requests_per_minute
+        self.window: int = window_seconds
 
-    async def _get_redis(self) -> Optional[Redis]:
+    async def _get_redis(self) -> Redis | None:
         current = getattr(self, "app", None)
         seen = set()
         while current is not None and id(current) not in seen:
@@ -24,7 +27,9 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             current = getattr(current, "app", None)
         return None
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         # safe extraction of client IP from request.scope
         try:
             client_ip = request.client.host if request.client else "unknown"
@@ -39,7 +44,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if not redis:
             if not hasattr(self, "_local_store"):
                 # key -> list[timestamps]
-                self._local_store = {}
+                self._local_store: dict[str, list[float]] = {}
 
             key = f"rate_limit:{client_ip}"
             timestamps = self._local_store.get(key, [])

@@ -4,8 +4,9 @@ from typing import Annotated
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
+
 from app.core.config import settings
-from app.core.db import engine
+from app.core.db import get_engine
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -13,7 +14,7 @@ reusable_oauth2 = OAuth2PasswordBearer(
 
 
 def get_db() -> Generator[Session, None, None]:
-    with Session(engine) as session:
+    with Session(get_engine()) as session:
         yield session
 
 

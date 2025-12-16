@@ -37,10 +37,11 @@ class Settings(BaseSettings):
     # No frontend in this repository; leave blank by default
     FRONTEND_HOST: str = ""
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    DEBUG: bool = False
 
-    BACKEND_CORS_ORIGINS: Annotated[
-        list[AnyUrl] | str, BeforeValidator(parse_cors)
-    ] = []
+    BACKEND_CORS_ORIGINS: Annotated[list[AnyUrl] | str, BeforeValidator(parse_cors)] = (
+        []
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -50,15 +51,15 @@ class Settings(BaseSettings):
             origins.append(self.FRONTEND_HOST)
         return origins
 
-    PROJECT_NAME: str
+    PROJECT_NAME: str = "Full Stack FastAPI Project"
     SENTRY_DSN: HttpUrl | None = None
-    POSTGRES_SERVER: str
+    POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
+    POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
     # Redis connection URL. Default points to the compose service `redis`.
-    REDIS_URL: str = "redis://redis:6379/0"
+    REDIS_URL: str = "redis://localhost:6379/0"
     # Celery broker/result backend. By default reuse `REDIS_URL` so you can
     # configure an Upstash or other hosted Redis via `REDIS_URL` or explicitly
     # via `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` env vars.
@@ -123,7 +124,9 @@ class Settings(BaseSettings):
         """Whether R2 integration is configured/enabled."""
         if not self.R2_ENABLED:
             return False
-        return bool(self.R2_BUCKET and self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY)
+        return bool(
+            self.R2_BUCKET and self.R2_ACCESS_KEY_ID and self.R2_SECRET_ACCESS_KEY
+        )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -141,8 +144,8 @@ class Settings(BaseSettings):
         return cfg
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
+    FIRST_SUPERUSER: EmailStr = "admin@example.com"
+    FIRST_SUPERUSER_PASSWORD: str = "changethis"
 
     # WebEngage transactional email settings
     WEBENGAGE_API_URL: HttpUrl | None = None
@@ -177,7 +180,7 @@ class Settings(BaseSettings):
 
 
 try:
-    settings = Settings()  # type: ignore
+    settings = Settings()
 except Exception:
     # During test collection or in minimal environments the full validation
     # may fail (missing env vars). Fall back to an unvalidated model
@@ -186,4 +189,29 @@ except Exception:
         settings = Settings.model_construct()
     except Exception:
         # As a last resort, create an empty instance without validation
-        settings = Settings.__new__(Settings)  # type: ignore
+        settings = Settings.__new__(Settings)
+    # Ensure a minimal set of commonly-accessed attributes exist so
+    # import-time access (e.g. in app.main) does not raise AttributeError.
+    # Prefer values from the environment when available.
+    import os
+
+    _fallback_defaults = {
+        "PROJECT_NAME": os.environ.get("PROJECT_NAME", "Full Stack FastAPI Project"),
+        "POSTGRES_SERVER": os.environ.get("POSTGRES_SERVER", "localhost"),
+        "POSTGRES_PORT": int(os.environ.get("POSTGRES_PORT", 5432)),
+        "POSTGRES_USER": os.environ.get("POSTGRES_USER", "postgres"),
+        "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+        "POSTGRES_DB": os.environ.get("POSTGRES_DB", ""),
+        "FIRST_SUPERUSER": os.environ.get("FIRST_SUPERUSER", "admin@example.com"),
+        "FIRST_SUPERUSER_PASSWORD": os.environ.get(
+            "FIRST_SUPERUSER_PASSWORD", "changethis"
+        ),
+    }
+
+    for _k, _v in _fallback_defaults.items():
+        if not hasattr(settings, _k):
+            try:
+                setattr(settings, _k, _v)
+            except Exception:
+                # Best-effort: ignore if attribute can't be set on the fallback
+                pass
