@@ -33,8 +33,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          docker compose run --rm backend pytest --maxfail=1 -q --disable-warnings \
-            --cov=app --cov-report=xml:coverage.xml --cov-report=html:coverage_html
+          # Run tests inside the backend container using coverage CLI
+          docker compose run --rm backend bash -lc "python -m coverage run -m pytest --maxfail=1 -q --disable-warnings && python -m coverage xml -o coverage.xml && python -m coverage html -d coverage_html"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4

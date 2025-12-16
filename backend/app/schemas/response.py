@@ -1,4 +1,4 @@
-from typing import Optional, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, Field
 
 T = TypeVar('T')
@@ -7,9 +7,11 @@ T = TypeVar('T')
 class ResponseSchema(BaseModel, Generic[T]):
     success: bool = Field(default=True, description="Operation success status")
     message: str = Field(default="Success", description="Response message")
-    data: Optional[T] = Field(default=None, description="Response data")
-    errors: Optional[Any] = Field(default=None, description="Error details")
-    meta: Optional[dict] = Field(default=None, description="Additional metadata")
+    data: T | None = Field(default=None, description="Response data")
+    errors: Any | None = Field(default=None, description="Error details")
+    meta: Any | None = Field(
+        default=None, description="Additional metadata or pagination info"
+    )
 
     class Config:
         json_schema_extra = {
@@ -31,4 +33,4 @@ class PaginationMeta(BaseModel):
 
 
 class PaginatedResponseSchema(ResponseSchema[T], Generic[T]):
-    meta: Optional[PaginationMeta] = None
+    meta: PaginationMeta | None = None

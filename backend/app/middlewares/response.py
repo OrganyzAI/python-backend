@@ -1,14 +1,18 @@
-from fastapi import Request
+import json
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from typing import Callable, Any
-import json
 
 from app.schemas.response import ResponseSchema
 
 
 class ResponseFormatterMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         response = await call_next(request)
 
         content_type = response.headers.get("content-type", "")

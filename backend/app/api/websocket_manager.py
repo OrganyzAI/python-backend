@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict, Set
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -8,11 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 class WebSocketManager:
-    def __init__(self, redis_client):
+    def __init__(self, redis_client: Any):
         self.redis = redis_client
-        self.connections: Dict[str, Set[WebSocket]] = {}
-        self._pubsub = None
-        self._listen_task: asyncio.Task | None = None
+        self.connections: dict[str, set[WebSocket]] = {}
+        self._pubsub: Any = None
+        self._listen_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         if not self.redis:
@@ -67,9 +67,9 @@ class WebSocketManager:
                 # redis.asyncio returns bytes for channel/data in some setups
                 channel = message.get("channel") or message.get("pattern")
                 data = message.get("data")
-                if isinstance(channel, (bytes, bytearray)):
+                if isinstance(channel, bytes | bytearray):
                     channel = channel.decode()
-                if isinstance(data, (bytes, bytearray)):
+                if isinstance(data, bytes | bytearray):
                     data = data.decode()
                 # channel format: ws:<room>
                 try:

@@ -8,7 +8,7 @@ registered on `SQLModel.metadata` and are available for
 Keep imports explicit to avoid accidental heavy imports at runtime.
 """
 
-from . import user  # noqa: F401
 from . import otp  # noqa: F401
+from . import user  # noqa: F401
 
 __all__ = ["user", "otp"]
