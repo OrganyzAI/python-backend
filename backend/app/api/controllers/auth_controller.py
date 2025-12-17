@@ -60,13 +60,11 @@ class UserController:
         if isinstance(message, self.error_class):
             exc = message
             fallback_status = getattr(exc, "status_code", status.HTTP_400_BAD_REQUEST)
-            code = (
-                code
-                if code is not None
-                else fallback_status
-                if isinstance(fallback_status, int)
-                else status.HTTP_400_BAD_REQUEST
-            )
+            if code is None:
+                if isinstance(fallback_status, int):
+                    code = fallback_status
+                else:
+                    code = status.HTTP_400_BAD_REQUEST
             payload = self.response_class(
                 success=False,
                 message=getattr(exc, "message", str(exc)),
@@ -75,12 +73,8 @@ class UserController:
             ).model_dump(exclude_none=True)
             return JSONResponse(status_code=int(code), content=payload)
 
-        if isinstance(message, Exception):
-            code = code if code is not None else status.HTTP_400_BAD_REQUEST
-            msg = str(message)
-        else:
-            code = code if code is not None else status.HTTP_400_BAD_REQUEST
-            msg = str(message)
+        code = code if code is not None else status.HTTP_400_BAD_REQUEST
+        msg = str(message)
 
         payload = self.response_class(
             success=False,

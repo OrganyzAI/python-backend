@@ -18,11 +18,13 @@ def _base_kwargs():
 
 def test_all_cors_origins_and_default_emails_from():
     kw = _base_kwargs()
-    kw.update({
-        "BACKEND_CORS_ORIGINS": "http://a.com, http://b.com/",
-        "FRONTEND_HOST": "https://frontend.local",
-        # omit EMAILS_FROM_NAME to exercise _set_default_emails_from
-    })
+    kw.update(
+        {
+            "BACKEND_CORS_ORIGINS": "http://a.com, http://b.com/",
+            "FRONTEND_HOST": "https://frontend.local",
+            # omit EMAILS_FROM_NAME to exercise _set_default_emails_from
+        }
+    )
     s = Settings(**kw)
     origins = s.all_cors_origins
     assert "http://a.com" in origins
@@ -33,14 +35,16 @@ def test_all_cors_origins_and_default_emails_from():
 
 def test_sqlalchemy_uri_and_emails_webengage():
     kw = _base_kwargs()
-    kw.update({
-        "POSTGRES_PORT": 5433,
-        "POSTGRES_PASSWORD": "pw",
-        "SMTP_HOST": "smtp.local",
-        "EMAILS_FROM_EMAIL": "from@example.com",
-        "WEBENGAGE_API_URL": "https://api.webengage.test",
-        "WEBENGAGE_API_KEY": "key",
-    })
+    kw.update(
+        {
+            "POSTGRES_PORT": 5433,
+            "POSTGRES_PASSWORD": "pw",
+            "SMTP_HOST": "smtp.local",
+            "EMAILS_FROM_EMAIL": "from@example.com",
+            "WEBENGAGE_API_URL": "https://api.webengage.test",
+            "WEBENGAGE_API_KEY": "key",
+        }
+    )
     s = Settings(**kw)
     uri = s.SQLALCHEMY_DATABASE_URI
     assert "postgresql+psycopg" in str(uri)
@@ -51,13 +55,15 @@ def test_sqlalchemy_uri_and_emails_webengage():
 def test_r2_endpoint_and_boto3_config():
     kw = _base_kwargs()
     # explicit endpoint
-    kw.update({
-        "R2_ENDPOINT_URL": "https://custom.endpoint",
-        "R2_ENABLED": True,
-        "R2_BUCKET": "b",
-        "R2_ACCESS_KEY_ID": "id",
-        "R2_SECRET_ACCESS_KEY": "secret",
-    })
+    kw.update(
+        {
+            "R2_ENDPOINT_URL": "https://custom.endpoint",
+            "R2_ENABLED": True,
+            "R2_BUCKET": "b",
+            "R2_ACCESS_KEY_ID": "id",
+            "R2_SECRET_ACCESS_KEY": "secret",
+        }
+    )
     s = Settings(**kw)
     assert s.r2_endpoint == "https://custom.endpoint"
     assert s.r2_enabled is True
@@ -78,7 +84,13 @@ def test_r2_endpoint_and_boto3_config():
 def test_default_secrets_warning_local_and_error_nonlocal():
     # local environment: changethis should warn but not raise
     kw = _base_kwargs()
-    kw.update({"SECRET_KEY": "changethis", "POSTGRES_PASSWORD": "changethis", "FIRST_SUPERUSER_PASSWORD": "changethis"})
+    kw.update(
+        {
+            "SECRET_KEY": "changethis",
+            "POSTGRES_PASSWORD": "changethis",
+            "FIRST_SUPERUSER_PASSWORD": "changethis",
+        }
+    )
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         s = Settings(**kw)
@@ -87,7 +99,14 @@ def test_default_secrets_warning_local_and_error_nonlocal():
 
     # non-local should raise ValueError during model validation
     kw2 = _base_kwargs()
-    kw2.update({"ENVIRONMENT": "production", "SECRET_KEY": "changethis", "POSTGRES_PASSWORD": "changethis", "FIRST_SUPERUSER_PASSWORD": "changethis"})
+    kw2.update(
+        {
+            "ENVIRONMENT": "production",
+            "SECRET_KEY": "changethis",
+            "POSTGRES_PASSWORD": "changethis",
+            "FIRST_SUPERUSER_PASSWORD": "changethis",
+        }
+    )
     with pytest.raises(ValueError):
         Settings(**kw2)
 

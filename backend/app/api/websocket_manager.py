@@ -86,6 +86,7 @@ class WebSocketManager:
                 await self._broadcast_to_local(room, data)
         except asyncio.CancelledError:
             logger.info("WebSocketManager listener task cancelled")
+            raise
         except Exception as e:
             logger.exception(f"WebSocketManager listener error: {e}")
 
@@ -128,6 +129,7 @@ class WebSocketManager:
             except asyncio.CancelledError:
                 # task was cancelled as expected
                 logger.info("WebSocketManager listener task cancelled during stop")
+                raise
             except Exception:
                 logger.exception("Error waiting for websocket listener task to stop")
         if self._pubsub:
