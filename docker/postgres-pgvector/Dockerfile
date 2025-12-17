@@ -25,6 +25,6 @@ RUN if [ -z "${PGVECTOR_VERSION}" ]; then \
     && cd / \
     && rm -rf /tmp/pgvector
 
-COPY --chown=postgres:postgres --chmod=0555 initdb /docker-entrypoint-initdb.d
+COPY --chown=root:root --chmod=0555 initdb /docker-entrypoint-initdb.d
 
 USER postgres
