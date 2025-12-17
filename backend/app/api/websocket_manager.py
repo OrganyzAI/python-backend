@@ -127,9 +127,9 @@ class WebSocketManager:
             try:
                 await self._listen_task
             except asyncio.CancelledError:
-                # task was cancelled as expected
+                # task was cancelled as expected; swallow the exception so callers
+                # awaiting stop don't observe a CancelledError.
                 logger.info("WebSocketManager listener task cancelled during stop")
-                raise
             except Exception:
                 logger.exception("Error waiting for websocket listener task to stop")
         if self._pubsub:
