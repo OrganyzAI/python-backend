@@ -25,8 +25,8 @@ RUN if [ -z "${PGVECTOR_VERSION}" ]; then \
     && cd / \
     && rm -rf /tmp/pgvector
 
-# Copy initialization SQL scripts into the image so they run on first init
-COPY initdb /docker-entrypoint-initdb.d/
+
+COPY --chown=postgres:postgres initdb /docker-entrypoint-initdb.d/
 RUN chmod -R 755 /docker-entrypoint-initdb.d
 
-# Keep the default entrypoint from postgres image
+USER postgres

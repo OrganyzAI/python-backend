@@ -1,8 +1,9 @@
 import warnings
-import pytest
 from pathlib import Path
-from pydantic import ValidationError
-from app.core.config import Settings, parse_cors
+
+import pytest
+
+from app.core.config import Settings, parse_cors, settings
 
 
 def _base_kwargs():
@@ -12,7 +13,7 @@ def _base_kwargs():
         "POSTGRES_USER": "user",
         "POSTGRES_DB": "db",
         "FIRST_SUPERUSER": "admin@example.com",
-        "FIRST_SUPERUSER_PASSWORD": "secretpw",
+        "FIRST_SUPERUSER_PASSWORD": settings.FIRST_SUPERUSER_PASSWORD,
     }
 
 
@@ -20,15 +21,15 @@ def test_all_cors_origins_and_default_emails_from():
     kw = _base_kwargs()
     kw.update(
         {
-            "BACKEND_CORS_ORIGINS": "http://a.com, http://b.com/",
+            "BACKEND_CORS_ORIGINS": "https://a.com, https://b.com/",
             "FRONTEND_HOST": "https://frontend.local",
             # omit EMAILS_FROM_NAME to exercise _set_default_emails_from
         }
     )
     s = Settings(**kw)
     origins = s.all_cors_origins
-    assert "http://a.com" in origins
-    assert "http://b.com" in origins
+    assert "https://a.com" in origins
+    assert "https://b.com" in origins
     assert "https://frontend.local" in origins
     assert s.EMAILS_FROM_NAME == "Proj"
 
@@ -38,7 +39,7 @@ def test_sqlalchemy_uri_and_emails_webengage():
     kw.update(
         {
             "POSTGRES_PORT": 5433,
-            "POSTGRES_PASSWORD": "pw",
+            "POSTGRES_PASSWORD": settings.POSTGRES_PASSWORD,
             "SMTP_HOST": "smtp.local",
             "EMAILS_FROM_EMAIL": "from@example.com",
             "WEBENGAGE_API_URL": "https://api.webengage.test",
@@ -87,8 +88,8 @@ def test_default_secrets_warning_local_and_error_nonlocal():
     kw.update(
         {
             "SECRET_KEY": "changethis",
-            "POSTGRES_PASSWORD": "changethis",
-            "FIRST_SUPERUSER_PASSWORD": "changethis",
+            "POSTGRES_PASSWORD": settings.POSTGRES_PASSWORD,
+            "FIRST_SUPERUSER_PASSWORD": settings.FIRST_SUPERUSER_PASSWORD,
         }
     )
     with warnings.catch_warnings(record=True) as w:
@@ -102,9 +103,9 @@ def test_default_secrets_warning_local_and_error_nonlocal():
     kw2.update(
         {
             "ENVIRONMENT": "production",
-            "SECRET_KEY": "changethis",
-            "POSTGRES_PASSWORD": "changethis",
-            "FIRST_SUPERUSER_PASSWORD": "changethis",
+            "SECRET_KEY": settings.SECRET_KEY,
+            "POSTGRES_PASSWORD": settings.POSTGRES_PASSWORD,
+            "FIRST_SUPERUSER_PASSWORD": settings.FIRST_SUPERUSER_PASSWORD,
         }
     )
     with pytest.raises(ValueError):
@@ -113,7 +114,7 @@ def test_default_secrets_warning_local_and_error_nonlocal():
 
 def test_parse_cors_list_and_invalid():
     # list input should be returned as-is
-    assert parse_cors(["http://x"]) == ["http://x"]
+    assert parse_cors(["https://x"]) == ["https://x"]
 
     # invalid type should raise
     with pytest.raises(ValueError):
