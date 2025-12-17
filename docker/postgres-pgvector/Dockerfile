@@ -27,6 +27,7 @@ RUN if [ -z "${PGVECTOR_VERSION}" ]; then \
 
 
 COPY --chown=postgres:postgres initdb /docker-entrypoint-initdb.d/
-RUN chmod -R 755 /docker-entrypoint-initdb.d
+RUN find /docker-entrypoint-initdb.d -type d -exec chmod 555 {} \; \
+    && find /docker-entrypoint-initdb.d -type f -exec chmod 444 {} \;
 
 USER postgres
