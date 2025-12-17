@@ -70,10 +70,10 @@ def get_superuser_token_headers(db: Session) -> dict[str, str]:
 
 # Small test utilities used across tests when `tests.utils` helpers are not present
 def random_lower_string(length: int = 8) -> str:
-    import random
+    import secrets
     import string
 
-    return "".join(random.choice(string.ascii_lowercase) for _ in range(length))
+    return "".join(secrets.choice(string.ascii_lowercase) for _ in range(length))
 
 
 def random_email() -> str:
