@@ -145,7 +145,7 @@ class Settings(BaseSettings):
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str | None = None
+    FIRST_SUPERUSER_PASSWORD: str = "Test@1234"
 
     # WebEngage transactional email settings
     WEBENGAGE_API_URL: HttpUrl | None = None
