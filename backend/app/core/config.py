@@ -145,7 +145,7 @@ class Settings(BaseSettings):
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr = "admin@example.com"
-    FIRST_SUPERUSER_PASSWORD: str = "changethis"
+    FIRST_SUPERUSER_PASSWORD: str | None = None
 
     # WebEngage transactional email settings
     WEBENGAGE_API_URL: HttpUrl | None = None
@@ -194,19 +194,51 @@ except Exception:
     # import-time access (e.g. in app.main) does not raise AttributeError.
     # Prefer values from the environment when available.
     import os
+    from pathlib import Path
 
-    _fallback_defaults = {
-        "PROJECT_NAME": os.environ.get("PROJECT_NAME", "Full Stack FastAPI Project"),
-        "POSTGRES_SERVER": os.environ.get("POSTGRES_SERVER", "localhost"),
-        "POSTGRES_PORT": int(os.environ.get("POSTGRES_PORT", 5432)),
-        "POSTGRES_USER": os.environ.get("POSTGRES_USER", "postgres"),
-        "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
-        "POSTGRES_DB": os.environ.get("POSTGRES_DB", ""),
-        "FIRST_SUPERUSER": os.environ.get("FIRST_SUPERUSER", "admin@example.com"),
-        "FIRST_SUPERUSER_PASSWORD": os.environ.get(
-            "FIRST_SUPERUSER_PASSWORD", "changethis"
-        ),
-    }
+    # If a top-level .env file exists (searched upwards), load any simple
+    # KEY=VALUE pairs into os.environ so fallback defaults can pick them up.
+    try:
+        _p = Path(__file__).resolve().parent
+        _env_path: Path | None = None
+        for _ in range(6):
+            candidate = _p / ".env"
+            if candidate.exists():
+                _env_path = candidate
+                break
+            if _p.parent == _p:
+                break
+            _p = _p.parent
+
+        if _env_path:
+            text = _env_path.read_text(encoding="utf8")
+            for raw in text.splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                # don't override existing env vars
+                os.environ.setdefault(k, v)
+    except Exception:
+        # best-effort only; don't fail import on unexpected IO errors
+        pass
+
+        _fallback_defaults = {
+            "PROJECT_NAME": os.environ.get(
+                "PROJECT_NAME", "Full Stack FastAPI Project"
+            ),
+            "POSTGRES_SERVER": os.environ.get("POSTGRES_SERVER", "localhost"),
+            "POSTGRES_PORT": int(os.environ.get("POSTGRES_PORT", 5432)),
+            "POSTGRES_USER": os.environ.get("POSTGRES_USER", "postgres"),
+            "POSTGRES_PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
+            "POSTGRES_DB": os.environ.get("POSTGRES_DB", ""),
+            "FIRST_SUPERUSER": os.environ.get("FIRST_SUPERUSER", "admin@example.com"),
+            "FIRST_SUPERUSER_PASSWORD": os.environ.get("FIRST_SUPERUSER_PASSWORD", ""),
+        }
 
     for _k, _v in _fallback_defaults.items():
         if not hasattr(settings, _k):

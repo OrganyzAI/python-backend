@@ -21,7 +21,8 @@ def authentication_token_from_email(
     statement = select(User).where(User.email == email)
     user = db.exec(statement).first()
     if not user:
-        hashed = security.get_password_hash("password")
+        default_pw = getattr(settings, "FIRST_SUPERUSER_PASSWORD", "changethis")
+        hashed = security.get_password_hash(default_pw)
         user = User(
             email=email, hashed_password=hashed, first_name="Test", last_name="User"
         )
@@ -36,17 +37,9 @@ def authentication_token_from_email(
     return {"Authorization": f"Bearer {token}"}
 
 
-def get_superuser_token_headers(client: TestClient, db: Session) -> dict[str, str]:
-    email = (
-        settings.FIRST_SUPERUSER
-        if hasattr(settings, "FIRST_SUPERUSER")
-        else "super@example.com"
-    )
-    password = (
-        settings.FIRST_SUPERUSER_PASSWORD
-        if hasattr(settings, "FIRST_SUPERUSER_PASSWORD")
-        else "password"
-    )
+def get_superuser_token_headers(db: Session) -> dict[str, str]:
+    email = getattr(settings, "FIRST_SUPERUSER", "super@example.com")
+    password = getattr(settings, "FIRST_SUPERUSER_PASSWORD", "changethis")
     statement = select(User).where(User.email == email)
     user = db.exec(statement).first()
     if not user:
@@ -108,8 +101,8 @@ def client() -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture(scope="module")
-def superuser_token_headers(client: TestClient) -> dict[str, str]:
-    return get_superuser_token_headers(client)
+def superuser_token_headers(db: Session) -> dict[str, str]:
+    return get_superuser_token_headers(db)
 
 
 @pytest.fixture(scope="module")
