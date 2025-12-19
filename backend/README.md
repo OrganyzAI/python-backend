@@ -2,8 +2,8 @@
 
 ## Requirements
 
-* [Docker](https://www.docker.com/).
-* [uv](https://docs.astral.sh/uv/) for Python package and environment management.
+- [Docker](https://www.docker.com/).
+- [uv](https://docs.astral.sh/uv/) for Python package and environment management.
 
 ## Docker Compose
 
@@ -127,23 +127,23 @@ As during local development your app directory is mounted as a volume inside the
 
 Make sure you create a "revision" of your models and that you "upgrade" your database with that revision every time you change them. As this is what will update the tables in your database. Otherwise, your application will have errors.
 
-* Start an interactive session in the backend container:
+- Start an interactive session in the backend container:
 
 ```console
 $ docker compose exec backend bash
 ```
 
-* Alembic is already configured to import your SQLModel models from `./backend/app/models.py`.
+- Alembic is already configured to import your SQLModel models from `./backend/app/models.py`.
 
-* After changing a model (for example, adding a column), inside the container, create a revision, e.g.:
+- After changing a model (for example, adding a column), inside the container, create a revision, e.g.:
 
 ```console
 $ alembic revision --autogenerate -m "Add column last_name to User model"
 ```
 
-* Commit to the git repository the files generated in the alembic directory.
+- Commit to the git repository the files generated in the alembic directory.
 
-* After creating the revision, run the migration in the database (this is what will actually change the database):
+- After creating the revision, run the migration in the database (this is what will actually change the database):
 
 ```console
 $ alembic upgrade head
@@ -170,3 +170,44 @@ The email templates are in `./backend/app/email-templates/`. Here, there are two
 Before continuing, ensure you have the [MJML extension](https://marketplace.visualstudio.com/items?itemName=attilabuti.vscode-mjml) installed in your VS Code.
 
 Once you have the MJML extension installed, you can create a new email template in the `src` directory. After creating the new email template and with the `.mjml` file open in your editor, open the command palette with `Ctrl+Shift+P` and search for `MJML: Export to HTML`. This will convert the `.mjml` file to a `.html` file and now you can save it in the build directory.
+
+## Background Tasks (Celery) and Upstash Redis
+
+This project supports running background tasks using Celery with Redis as
+broker/result backend. You can use a local Redis (via Docker Compose) or a
+hosted provider such as Upstash. The project reads these settings from the
+environment via the `app.core.settings` values.
+
+- **Configure via `.env` or environment**: set either `REDIS_URL` (recommended)
+  or `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` explicitly. For Upstash
+  use the `rediss://` URL provided by Upstash (it contains the host and token).
+
+Example `.env` entries for Upstash (replace with your values):
+
+```
+REDIS_URL=rediss://default:REPLACE_WITH_YOUR_TOKEN@global-xxxx.upstash.io:6379
+# or explicit celery vars
+CELERY_BROKER_URL=rediss://default:REPLACE_WITH_YOUR_TOKEN@global-xxxx.upstash.io:6379
+CELERY_RESULT_BACKEND=rediss://default:REPLACE_WITH_YOUR_TOKEN@global-xxxx.upstash.io:6379
+```
+
+- **Run worker (recommended)**: from the `backend/` directory either use the
+  Celery CLI or the lightweight Python entrypoint:
+
+```
+# using Celery CLI (preferred)
+celery -A app.core.celery_app.celery_app worker --loglevel=info
+
+# quick start via python entrypoint (run from the `backend/` directory)
+# module form:
+python -m app.workers.celery_worker
+```
+
+- **Test a task**: in a Python shell (with your virtualenv activated):
+
+```
+python -c "from app.workers import add; res = add.delay(2,3); print(res.get(timeout=10))"
+```
+
+The example tasks are in `app/tasks.py`. Replace `send_welcome_email` with
+your real email sending logic to run it asynchronously.
