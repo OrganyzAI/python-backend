@@ -12,6 +12,11 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: changethis
+      POSTGRES_DB: app
+      COMPOSE_PROJECT_NAME: organyz_test
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -25,14 +30,34 @@ jobs:
           version: "0.4.15"
           enable-cache: true
       - run: docker compose down -v --remove-orphans
-      - run: docker compose up -d db mailcatcher
+      - name: Build DB image
+        run: docker compose build --pull --no-cache db
+      - name: Prepare DB volume (create + set ownership)
+        run: |
+          echo "Creating and fixing permissions for compose volume"
+          docker volume create ${COMPOSE_PROJECT_NAME}_app-db-data || true
+          docker run --rm -v ${COMPOSE_PROJECT_NAME}_app-db-data:/var/lib/postgresql/data busybox sh -c "chown -R 999:999 /var/lib/postgresql/data || true"
+      - name: Start DB and mailcatcher
+        run: docker compose up -d db mailcatcher
+      - name: Wait for DB to be ready
+        run: |
+          echo "Waiting for PostgreSQL to accept connections..."
+          for i in $(seq 1 60); do
+            docker compose exec db pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1 && { echo "DB ready"; exit 0; }
+            sleep 2
+          done
+          echo "DB did not become ready in time, printing logs:"
+          docker compose logs --no-color db || true
+          exit 1
       - name: Migrate DB
-        run: uv run bash scripts/prestart.sh
-        working-directory: backend
+        run: docker compose run --rm prestart
       - name: Run tests
         run: uv run bash scripts/tests-start.sh "Coverage for ${{ github.sha }}"
         working-directory: backend
       - run: docker compose down -v --remove-orphans
+      - name: Print DB logs on failure
+        if: failure()
+        run: docker compose logs --no-color db || true
       - name: Store coverage files
         uses: actions/upload-artifact@v5
         with:

@@ -1,25 +1,61 @@
+# Automatic labeler configuration
+# Maps changed files to labels applied by actions/labeler
+
+feature:
+  - "backend/**"
+  - "app/**"
+  - "src/**"
+
+docs:
+  - "README.md"
+  - "docs/**"
+  - "*.md"
+
+bug:
+  - "tests/**"
+  - "backend/tests/**"
+
+refactor:
+  - "**/*.py"
+  - "backend/**"
+
+internal:
+  - "docker/**"
+  - "deployment.md"
+  - ".github/**"
+
+security:
+  - "**/security/**"
+
+upgrade:
+  - "pyproject.toml"
+  - "requirements.txt"
+
+breaking:
+  - "alembic/**"
+
+lang-all:
+  - "translations/**"
 docs:
   - all:
-    - changed-files:
-      - any-glob-to-any-file:
-        - '**/*.md'
-      - all-globs-to-all-files:
-        - '!frontend/**'
-        - '!backend/**'
-        - '!.github/**'
-        - '!scripts/**'
-        - '!.gitignore'
-        - '!.pre-commit-config.yaml'
+      - changed-files:
+          - any-glob-to-any-file:
+              - "**/*.md"
+          - all-globs-to-all-files:
+              - "!backend/**"
+              - "!.github/**"
+              - "!scripts/**"
+              - "!.gitignore"
+              - "!.pre-commit-config.yaml"
 
 internal:
   - all:
-    - changed-files:
-      - any-glob-to-any-file:
-        - .github/**
-        - scripts/**
-        - .gitignore
-        - .pre-commit-config.yaml
-      - all-globs-to-all-files:
-        - '!./**/*.md'
-        - '!frontend/**'
-        - '!backend/**'
+      - changed-files:
+          - any-glob-to-any-file:
+              - .github/**
+              - scripts/**
+              - .gitignore
+              - .pre-commit-config.yaml
+          - all-globs-to-all-files:
+              - "!./**/*.md"
+              - "!backend/**"
