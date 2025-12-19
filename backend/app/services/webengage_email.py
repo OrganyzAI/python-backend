@@ -1,5 +1,5 @@
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -36,4 +36,4 @@ async def send_email(to_email: str, verify_url: str, ttl: int = 60) -> dict[str,
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.post(url, json=body, headers=headers)
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
