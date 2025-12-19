@@ -5,6 +5,7 @@ from app.api.controllers.auth_controller import UserController
 from app.schemas.user import (
     LoginSchema,
     ResendEmailSchema,
+    ResetPasswordSchema,
     VerifySchema,
 )
 
@@ -31,6 +32,16 @@ async def verify(request: VerifySchema) -> JSONResponse:
 @router.post("/resend-email")
 async def resend_email(request: ResendEmailSchema) -> JSONResponse:
     return await controller.resend_email(request)
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: ResendEmailSchema) -> JSONResponse:
+    return await controller.forgot_password(request)
+
+
+@router.post("/reset-password")
+async def reset_password(request: ResetPasswordSchema) -> JSONResponse:
+    return await controller.reset_password(request)
 
 
 @router.post("/logout")

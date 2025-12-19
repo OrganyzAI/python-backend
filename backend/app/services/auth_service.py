@@ -28,8 +28,10 @@ class AuthService:
         result = session.exec(statement).first()
         return result
 
-    async def send_token(self, to: str, verify_url: str) -> None:
-        await webengage_send_email(to_email=to, verify_url=verify_url)
+    async def send_token(self, to: str, verify_url: str, campaign_id: str) -> None:
+        await webengage_send_email(
+            to_email=to, verify_url=verify_url, campaign_id=campaign_id
+        )
 
     async def create_user(
         self,
@@ -83,6 +85,7 @@ class AuthService:
         await self.send_token(
             to=email,
             verify_url=verify_url,
+            campaign_id=settings.WEBENGAGE_CAMPAIGN_REGISTER_ID or "email_verification",
         )
 
         return user
@@ -171,6 +174,8 @@ class AuthService:
                     await self.send_token(
                         to=email,
                         verify_url=verify_url,
+                        campaign_id=settings.WEBENGAGE_CAMPAIGN_REGISTER_ID
+                        or "email_verification",
                     )
 
                     await self.save_token(user.id, verify_token, session=session)
@@ -210,6 +215,7 @@ class AuthService:
                     raise ValueError(MSG.AUTH["ERROR"]["INVALID_TOKEN_SUBJECT"])
 
                 user.status = UserStatus.active
+                otp_record.token_status = EmailTokenStatus.used
                 session.add(user)
                 session.commit()
                 session.refresh(user)
@@ -225,22 +231,45 @@ class AuthService:
                 raise ValueError(MSG.AUTH["ERROR"]["INVALID_TOKEN"])
 
     async def forgot_password(self, email: str) -> dict[str, Any]:
-        if not email:
-            raise ValueError(MSG.AUTH["ERROR"]["EMAIL_REQUIRED"])
+        try:
+            with Session(get_engine()) as session:
+                if not email:
+                    raise ValueError(MSG.AUTH["ERROR"]["EMAIL_REQUIRED"])
 
-        user = await self.get_user_by_email(email)
-        if not user:
-            return {"message": MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"]}
+                user = await self.get_user_by_email(email, session=session)
+                if not user:
+                    return {"message": MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"]}
 
-        expires = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
-        reset_token = security.create_access_token(
-            subject=str(user.id), expires_delta=expires
-        )
+                expires = timedelta(hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS)
+                reset_token = security.create_access_token(
+                    subject=str(user.id), expires_delta=expires
+                )
+                frontend_base = getattr(settings, "FRONTEND_URL", "")
+                reset_url = (
+                    f"{frontend_base.rstrip('/')}/reset-password?token={reset_token}"
+                    if frontend_base
+                    else reset_token
+                )
+                await self.send_token(
+                    to=email,
+                    verify_url=reset_url,
+                    campaign_id=settings.WEBENGAGE_CAMPAIGN_FORGOT_PASSWORD_ID
+                    or "password_reset",
+                )
+                await self.save_token(user.id, reset_token, session=session)
 
-        return {
-            "message": MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"],
-            "reset_token": reset_token,
-        }
+                session.commit()
+                session.refresh(user)
+                session.close()
+
+                return {
+                    "message": MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"],
+                    "reset_token": reset_token,
+                }
+        except ValueError as e:
+            session.rollback()
+            session.close()
+            raise e
 
     async def reset_password(self, token: str, new_password: str) -> dict[str, Any]:
         if not token or not new_password:
@@ -254,15 +283,29 @@ class AuthService:
                 raise ValueError(MSG.AUTH["ERROR"]["INVALID_TOKEN"])
 
             with Session(get_engine()) as session:
-                statement = select(User).where(User.id == subject)
+                token_record = session.exec(
+                    select(OTP).where(
+                        OTP.email_token == token,
+                        OTP.token_status == EmailTokenStatus.active,
+                    )
+                ).first()
+                if (
+                    token_record is None
+                    or getattr(token_record, "user_id", None) is None
+                ):
+                    raise ValueError(MSG.AUTH["ERROR"]["INVALID_TOKEN_SUBJECT"])
+                statement = select(User).where(User.id == token_record.user_id)
                 user = session.exec(statement).first()
                 if not user:
                     raise ValueError(MSG.AUTH["ERROR"]["INVALID_TOKEN_SUBJECT"])
 
                 user.hashed_password = security.get_password_hash(new_password)
+                token_record.token_status = EmailTokenStatus.used
                 session.add(user)
+                session.add(token_record)
                 session.commit()
                 session.refresh(user)
+                session.close()
 
             return {"message": MSG.AUTH["SUCCESS"]["PASSWORD_HAS_BEEN_RESET"]}
         except jwt.ExpiredSignatureError:
@@ -290,20 +333,28 @@ class AuthService:
                 verify_token = security.create_access_token(
                     subject=str(user.id), expires_delta=expires
                 )
+
                 frontend_base = getattr(settings, "FRONTEND_URL", "")
                 verify_url = (
                     f"{frontend_base.rstrip('/')}/verify?token={verify_token}"
                     if frontend_base
                     else verify_token
                 )
+
                 await self.send_token(
                     to=email,
                     verify_url=verify_url,
+                    campaign_id=settings.WEBENGAGE_CAMPAIGN_REGISTER_ID
+                    or "email_verification",
                 )
                 await self.save_token(user.id, verify_token, session=session)
+                session.commit()
+                session.refresh(user)
+                session.close()
                 return {"message": MSG.AUTH["SUCCESS"]["VERIFICATION_EMAIL_RESENT"]}
 
             except ValueError as e:
+                session.rollback()
                 raise e
 
     async def logout(self, user_id: str | None = None) -> dict[str, Any]:

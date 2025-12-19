@@ -44,6 +44,7 @@ async def test_send_email_success(monkeypatch):
     result = await send_email(
         to_email="to@example.com",
         verify_url="https://example.com/verify?token=abc123",
+        campaign_id="test-campaign",
         ttl=60,
     )
 
@@ -57,4 +58,4 @@ async def test_send_email_not_configured(monkeypatch):
     monkeypatch.setattr(config.settings, "WEBENGAGE_API_URL", None, raising=False)
 
     with pytest.raises(RuntimeError):
-        await send_email("a@b.com", "s")
+        await send_email("a@b.com", "s", campaign_id="test-campaign")
