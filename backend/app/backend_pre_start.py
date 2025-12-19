@@ -5,8 +5,9 @@ from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
 from app.core import security
+from app.core.config import settings
 from app.core.db import get_engine
-from app.enums.user_enum import UserRole
+from app.enums.user_enum import UserRole, UserStatus
 from app.models.user import User
 
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +26,6 @@ wait_seconds = 1
 def init(db_engine: Engine) -> None:
     try:
         with Session(db_engine) as session:
-            # Try to create session to check if DB is awake
             session.exec(select(1))
     except Exception as e:
         logger.error(e)
@@ -39,11 +39,8 @@ def ensure_initial_admin(db_engine: Engine) -> None:
     If a user with the hardcoded admin email already exists, this is a no-op.
     Otherwise, create it with the specified credentials.
     """
-    admin_email = "admin@admin.com"
-    admin_password = "Password@1234"
-    admin_phone = "03056989246"
-    admin_first_name = "Asad"
-    admin_last_name = "ghafoor"
+    admin_email = settings.INITIAL_ADMIN_EMAIL
+    admin_password = settings.INITIAL_ADMIN_PASSWORD
 
     with Session(db_engine) as session:
         existing_admin = session.exec(
@@ -58,9 +55,7 @@ def ensure_initial_admin(db_engine: Engine) -> None:
         admin_user = User(
             email=admin_email,
             hashed_password=hashed_password,
-            first_name=admin_first_name,
-            last_name=admin_last_name,
-            phone_number=admin_phone,
+            status=UserStatus.active,
             role=UserRole.admin,
         )
 
