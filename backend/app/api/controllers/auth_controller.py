@@ -6,11 +6,8 @@ from starlette import status
 from app.core.exceptions import AppException
 from app.schemas.response import ResponseSchema
 from app.schemas.user import (
-    ForgotPasswordSchema,
     LoginSchema,
-    RegisterSchema,
     ResendEmailSchema,
-    ResetPasswordSchema,
     VerifySchema,
 )
 from app.services.auth_service import AuthService
@@ -96,15 +93,9 @@ class UserController:
         except Exception as exc:
             return self._error(exc)
 
-    async def register(self, request: RegisterSchema) -> JSONResponse:
+    async def register(self, request: LoginSchema) -> JSONResponse:
         try:
-            result = await self.service.register(
-                request.email,
-                request.password,
-                request.first_name,
-                request.last_name,
-                request.phone_number,
-            )
+            result = await self.service.register(request.email, request.password)
             return self._success(
                 data=result,
                 message=MSG.AUTH["SUCCESS"]["USER_REGISTERED"],
@@ -119,30 +110,6 @@ class UserController:
             return self._success(
                 data=result,
                 message=MSG.AUTH["SUCCESS"]["EMAIL_VERIFIED"],
-                status_code=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return self._error(exc)
-
-    async def forgot_password(self, request: ForgotPasswordSchema) -> JSONResponse:
-        try:
-            result = await self.service.forgot_password(email=request.email)
-            return self._success(
-                data=result,
-                message=MSG.AUTH["SUCCESS"]["PASSWORD_RESET_EMAIL_SENT"],
-                status_code=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return self._error(exc)
-
-    async def reset_password(self, request: ResetPasswordSchema) -> JSONResponse:
-        try:
-            result = await self.service.reset_password(
-                token=request.token, new_password=request.new_password
-            )
-            return self._success(
-                data=result,
-                message=MSG.AUTH["SUCCESS"]["PASSWORD_HAS_BEEN_RESET"],
                 status_code=status.HTTP_200_OK,
             )
         except Exception as exc:

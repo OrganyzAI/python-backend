@@ -3,11 +3,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.controllers.auth_controller import UserController
 from app.schemas.user import (
-    ForgotPasswordSchema,
     LoginSchema,
-    RegisterSchema,
     ResendEmailSchema,
-    ResetPasswordSchema,
     VerifySchema,
 )
 
@@ -22,23 +19,13 @@ async def login(request: LoginSchema) -> JSONResponse:
 
 
 @router.post("/register")
-async def register(request: RegisterSchema) -> JSONResponse:
+async def register(request: LoginSchema) -> JSONResponse:
     return await controller.register(request)
 
 
 @router.post("/verify")
 async def verify(request: VerifySchema) -> JSONResponse:
     return await controller.verify(request)
-
-
-@router.post("/forgot-password")
-async def forgot_password(request: ForgotPasswordSchema) -> JSONResponse:
-    return await controller.forgot_password(request)
-
-
-@router.post("/reset-password")
-async def reset_password(request: ResetPasswordSchema) -> JSONResponse:
-    return await controller.reset_password(request)
 
 
 @router.post("/resend-email")

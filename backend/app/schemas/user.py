@@ -16,21 +16,6 @@ class LoginSchema(BaseModel):
         return v
 
 
-class RegisterSchema(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    password: str
-    phone_number: str | None = None
-
-    @field_validator("password")
-    @classmethod
-    def password_strength(cls, v: str) -> str:
-        if not RegexClass.is_strong_password(v):
-            raise ValueError(MSG.VALIDATION["PASSWORD_TOO_WEAK"])
-        return v
-
-
 class ForgotPasswordSchema(BaseModel):
     email: EmailStr
 
