@@ -6,7 +6,9 @@ import httpx
 from app.core.config import settings
 
 
-async def send_email(to_email: str, verify_url: str, ttl: int = 60) -> dict[str, Any]:
+async def send_email(
+    to_email: str, verify_url: str, campaign_id: str, ttl: int = 60
+) -> dict[str, Any]:
     """
     Sends a transactional email using WebEngage API.
     """
@@ -14,7 +16,7 @@ async def send_email(to_email: str, verify_url: str, ttl: int = 60) -> dict[str,
     if not settings.webengage_enabled:
         raise RuntimeError("WebEngage is not enabled")
 
-    url = "https://api.webengage.com/v2/accounts/11b5648a7/experiments/~2o21rqq/transaction"
+    url = f"{settings.WEBENGAGE_API_URL}{settings.WEBENGAGE_LICENSE_CODE}/experiments/{campaign_id}/transaction"
     headers = {
         "Authorization": f"Bearer {settings.WEBENGAGE_API_KEY}",
         "Content-Type": "application/json",

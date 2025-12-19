@@ -24,6 +24,13 @@ class ResetPasswordSchema(BaseModel):
     token: str
     new_password: str
 
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if not RegexClass.is_strong_password(v):
+            raise ValueError(MSG.VALIDATION["PASSWORD_TOO_WEAK"])
+        return v
+
 
 class ResendEmailSchema(BaseModel):
     email: EmailStr

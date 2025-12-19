@@ -147,12 +147,15 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr = "admin@example.com"
     FIRST_SUPERUSER_PASSWORD: str = "Test@1234"
     USER_PASSWORD: str = "Test@1234"
+    INITIAL_ADMIN_EMAIL: EmailStr = "admin@example.com"
+    INITIAL_ADMIN_PASSWORD: str = "Test@12345"
 
     # WebEngage transactional email settings
     WEBENGAGE_API_URL: HttpUrl | None = None
     WEBENGAGE_API_KEY: str | None = None
     WEBENGAGE_LICENSE_CODE: str | None = None
-    WEBENGAGE_CAMPAIGN_ID: str | None = None
+    WEBENGAGE_CAMPAIGN_REGISTER_ID: str | None = None
+    WEBENGAGE_CAMPAIGN_FORGOT_PASSWORD_ID: str | None = None
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

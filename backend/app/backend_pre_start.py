@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
 from app.core import security
+from app.core.config import settings
 from app.core.db import get_engine
 from app.enums.user_enum import UserRole, UserStatus
 from app.models.user import User
@@ -38,8 +39,8 @@ def ensure_initial_admin(db_engine: Engine) -> None:
     If a user with the hardcoded admin email already exists, this is a no-op.
     Otherwise, create it with the specified credentials.
     """
-    admin_email = "admin@admin.com"
-    admin_password = "Password@1234"
+    admin_email = settings.INITIAL_ADMIN_EMAIL
+    admin_password = settings.INITIAL_ADMIN_PASSWORD
 
     with Session(db_engine) as session:
         existing_admin = session.exec(
