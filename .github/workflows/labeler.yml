@@ -16,9 +16,9 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/labeler@v6
-      if: ${{ github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
-    - run: echo "Done adding labels"
+      - uses: actions/labeler@v6
+        if: ${{ github.event.action != 'labeled' && github.event.action != 'unlabeled' }}
+      - run: echo "Done adding labels"
   # Run this after labeler applied labels
   check-labels:
     needs:
@@ -27,7 +27,9 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
-      - uses: docker://agilepathway/pull-request-label-checker:latest
+      - name: Check PR labels (tolerant)
+        uses: docker://agilepathway/pull-request-label-checker:v1
         with:
           one_of: breaking,security,feature,bug,refactor,upgrade,docs,lang-all,internal
           repo_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

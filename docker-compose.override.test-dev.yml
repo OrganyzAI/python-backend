@@ -1,0 +1,64 @@
+services:
+
+  # Local services are available on their ports, but also available on:
+  # http://api.localhost.tiangolo.com: backend
+  # http://dashboard.localhost.tiangolo.com: frontend
+  # etc. To enable it, update .env, set:
+  # DOMAIN=localhost.tiangolo.com
+
+  db:
+    restart: "no"
+    ports:
+      - "5432:5432"
+
+  backend:
+    restart: "no"
+    ports:
+      - "8000:8000"
+    build:
+      context: ./backend
+    command:
+      - fastapi
+      - run
+      - --reload
+      - "app/main.py"
+    develop:
+      watch:
+        - path: ./backend
+          action: sync
+          target: /app
+          ignore:
+            - ./backend/.venv
+            - .venv
+        - path: ./backend/pyproject.toml
+          action: rebuild
+    volumes:
+      - ./backend/htmlcov:/app/htmlcov
+    environment:
+      SMTP_HOST: "mailcatcher"
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: "noreply@example.com"
+
+  mailcatcher:
+    image: schickling/mailcatcher
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    ports:
+      - "6379:6379"
+
+    networks:
+      - default
+    volumes:
+      - redis-data:/data
+  # frontend and playwright services removed for a backend-only setup
+
+  # Traefik network removed for local dev
+
+volumes:
+  redis-data:

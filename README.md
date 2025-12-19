@@ -10,12 +10,7 @@
   - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
   - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
   - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
-- 🚀 [React](https://react.dev) for the frontend.
-  - 💃 Using TypeScript, hooks, [Vite](https://vitejs.dev), and other parts of a modern frontend stack.
-  - 🎨 [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com) for the frontend components.
-  - 🤖 An automatically generated frontend client.
-  - 🧪 [Playwright](https://playwright.dev) for End-to-End testing.
-  - 🦇 Dark mode support.
+- 🚀 Frontend removed from this repository (backend-only).
 - 🐋 [Docker Compose](https://www.docker.com) for development and production.
 - 🔒 Secure password hashing by default.
 - 🔑 JWT (JSON Web Token) authentication.
@@ -23,7 +18,7 @@
 - 📬 [Mailcatcher](https://mailcatcher.me) for local email testing during development.
 - ✅ Tests with [Pytest](https://pytest.org).
 - 📞 [Traefik](https://traefik.io) as a reverse proxy / load balancer.
-- 🚢 Deployment instructions using Docker Compose, including how to set up a frontend Traefik proxy to handle automatic HTTPS certificates.
+- 🚢 Deployment instructions using Docker Compose, including how to set up Traefik to handle automatic HTTPS certificates.
 - 🏭 CI (continuous integration) and CD (continuous deployment) based on GitHub Actions.
 
 ### Dashboard Login
@@ -148,6 +143,22 @@ Copy the content and use that as password / secret key. And run that again to ge
 
 ## How To Use It - Alternative With Copier
 
+## PostgreSQL 18 + pgvector (local Docker)
+
+This project includes a Docker image to run PostgreSQL 18 with the `pgvector` v0.8 extension built-in.
+
+- Build and start the full stack (uses the custom image for the `db` service):
+
+```bash
+docker compose up --build -d
+```
+
+- The container image is built from `docker/postgres-pgvector/Dockerfile` and the initialization SQL
+  `docker/postgres-pgvector/initdb/01-enable-pgvector.sql` creates the `vector` extension on first
+  initialization.
+
+If you prefer to use a pre-built image, modify `docker-compose.yml` to point `db.image` to your image.
+
 This repository also supports generating a new project using [Copier](https://copier.readthedocs.io).
 
 It will copy all the files, ask you configuration questions, and update the `.env` files with your answers.
@@ -212,7 +223,7 @@ Backend docs: [backend/README.md](./backend/README.md).
 
 ## Frontend Development
 
-Frontend docs: [frontend/README.md](./frontend/README.md).
+Frontend removed from this repository.
 
 ## Deployment
 

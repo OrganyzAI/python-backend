@@ -4,7 +4,10 @@ from sqlalchemy import Engine
 from sqlmodel import Session, select
 from tenacity import after_log, before_log, retry, stop_after_attempt, wait_fixed
 
-from app.core.db import engine
+from app.core import security
+from app.core.db import get_engine
+from app.enums.user_enum import UserRole
+from app.models.user import User
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,9 +32,49 @@ def init(db_engine: Engine) -> None:
         raise e
 
 
+def ensure_initial_admin(db_engine: Engine) -> None:
+    """
+    Ensure a default admin user exists.
+
+    If a user with the hardcoded admin email already exists, this is a no-op.
+    Otherwise, create it with the specified credentials.
+    """
+    admin_email = "admin@admin.com"
+    admin_password = "Password@1234"
+    admin_phone = "03056989246"
+    admin_first_name = "Asad"
+    admin_last_name = "ghafoor"
+
+    with Session(db_engine) as session:
+        existing_admin = session.exec(
+            select(User).where(User.email == admin_email)
+        ).first()
+
+        if existing_admin:
+            logger.info("Admin user already exists, skipping creation.")
+            return
+
+        hashed_password = security.get_password_hash(admin_password)
+        admin_user = User(
+            email=admin_email,
+            hashed_password=hashed_password,
+            first_name=admin_first_name,
+            last_name=admin_last_name,
+            phone_number=admin_phone,
+            role=UserRole.admin,
+        )
+
+        session.add(admin_user)
+        session.commit()
+        session.refresh(admin_user)
+        logger.info("Initial admin user created: %s", admin_email)
+
+
 def main() -> None:
     logger.info("Initializing service")
+    engine = get_engine()
     init(engine)
+    ensure_initial_admin(engine)
     logger.info("Service finished initializing")
 
 
