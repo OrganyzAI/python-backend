@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
     # Redis connection URL. Default points to the compose service `redis`.
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://redis:6379/0"
     # Celery broker/result backend. By default reuse `REDIS_URL` so you can
     # configure an Upstash or other hosted Redis via `REDIS_URL` or explicitly
     # via `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` env vars.
@@ -147,10 +147,15 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr = "admin@example.com"
     FIRST_SUPERUSER_PASSWORD: str = "Test@1234"
     USER_PASSWORD: str = "Test@1234"
+    INITIAL_ADMIN_EMAIL: EmailStr = "admin@example.com"
+    INITIAL_ADMIN_PASSWORD: str = "Test@12345"
 
     # WebEngage transactional email settings
     WEBENGAGE_API_URL: HttpUrl | None = None
     WEBENGAGE_API_KEY: str | None = None
+    WEBENGAGE_LICENSE_CODE: str | None = None
+    WEBENGAGE_CAMPAIGN_REGISTER_ID: str | None = None
+    WEBENGAGE_CAMPAIGN_FORGOT_PASSWORD_ID: str | None = None
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.enums.user_enum import UserRole
+from app.enums.user_enum import UserRole, UserStatus
 
 if TYPE_CHECKING:
     from app.models.otp import OTP
@@ -13,12 +13,11 @@ if TYPE_CHECKING:
 
 class User(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
-    first_name: str | None = None
-    last_name: str | None = None
     email: EmailStr = Field(index=True, unique=True, nullable=False)
     hashed_password: str = Field(nullable=False)
-    phone_number: str | None = None
+    status: UserStatus = Field(default=UserStatus.inactive)
     role: UserRole = Field(default=UserRole.user)
+    token: str | None = Field(default=None, index=True, unique=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -30,9 +29,6 @@ class User(SQLModel, table=True):
 # Pydantic/SQLModel helper schemas used by the tests and API
 class UserBase(SQLModel):
     email: EmailStr
-    first_name: str | None = None
-    last_name: str | None = None
-    phone_number: str | None = None
 
 
 class UserCreate(UserBase):
@@ -40,7 +36,4 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(SQLModel):
-    first_name: str | None = None
-    last_name: str | None = None
     password: str | None = None
-    phone_number: str | None = None
