@@ -1,31 +1,20 @@
-from fastapi import APIRouter, Depends
-from pydantic.networks import EmailStr
-
-from app.api.deps import get_current_active_superuser
-from app.models import Message
-from app.utils import generate_test_email, send_email
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/utils", tags=["utils"])
 
 
-@router.post(
-    "/test-email/",
-    dependencies=[Depends(get_current_active_superuser)],
-    status_code=201,
-)
-def test_email(email_to: EmailStr) -> Message:
-    """
-    Test emails.
-    """
-    email_data = generate_test_email(email_to=email_to)
-    send_email(
-        email_to=email_to,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-    )
-    return Message(message="Test email sent")
-
-
-@router.get("/health-check/")
-async def health_check() -> bool:
-    return True
+@router.get("/health-check", status_code=200)
+async def health_check(request: Request) -> JSONResponse:
+    """Basic health-check endpoint. Returns service status and redis probe if available."""
+    result: dict[str, object] = {"status": "ok"}
+    redis = getattr(request.app.state, "redis", None)
+    try:
+        if redis:
+            pong = await redis.ping()
+            result["redis"] = bool(pong)
+        else:
+            result["redis"] = None
+    except Exception:
+        result["redis"] = False
+    return JSONResponse(result)
