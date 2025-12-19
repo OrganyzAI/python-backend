@@ -1,46 +1,39 @@
-from typing import Any, cast
+import uuid
+from typing import Any
 
 import httpx
 
 from app.core.config import settings
 
 
-async def send_email(
-    to_email: str,
-    subject: str,
-    template_id: str | None = None,
-    variables: dict[str, Any] | None = None,
-    from_email: str | None = None,
-    from_name: str | None = None,
-) -> dict[str, Any]:
-    if not settings.webengage_enabled:
-        raise RuntimeError(
-            "WebEngage is not configured (WEBENGAGE_API_URL/KEY missing)"
-        )
+async def send_email(to_email: str, verify_url: str, ttl: int = 60) -> dict[str, Any]:
+    """
+    Sends a transactional email using WebEngage API.
+    """
 
-    url = str(settings.WEBENGAGE_API_URL)
+    if not settings.webengage_enabled:
+        raise RuntimeError("WebEngage is not enabled")
+
+    url = "https://api.webengage.com/v2/accounts/11b5648a7/experiments/~2o21rqq/transaction"
     headers = {
         "Authorization": f"Bearer {settings.WEBENGAGE_API_KEY}",
         "Content-Type": "application/json",
+        "Accept": "application/json",
     }
 
-    body: dict[str, Any] = {
-        "to": {"email": to_email},
-        "subject": subject,
-        "personalization": variables or {},
+    # Generate a unique userId for each email to avoid conflicts
+    unique_user_id = str(uuid.uuid4())
+
+    body = {
+        "userId": unique_user_id,
+        "ttl": ttl,
+        "overrideData": {
+            "email": to_email,
+            "context": {"token": {"USER_EMAIL": to_email, "VERIFY_URL": verify_url}},
+        },
     }
 
-    if template_id:
-        body["template_id"] = template_id
-
-    if from_email or settings.EMAILS_FROM_EMAIL:
-        body["from"] = {
-            "email": from_email or str(settings.EMAILS_FROM_EMAIL),
-            "name": from_name or settings.EMAILS_FROM_NAME,
-        }
-
-    timeout = httpx.Timeout(10.0, connect=5.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.post(url, json=body, headers=headers)
-        resp.raise_for_status()
-        return cast(dict[str, Any], resp.json())
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, json=body, headers=headers)
+        response.raise_for_status()
+        return response.json()
