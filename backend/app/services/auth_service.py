@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 from sqlmodel import Session, select
@@ -9,10 +9,11 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import get_engine
 from app.enums.otp_enum import EmailTokenStatus
-from app.enums.user_enum import UserStatus
+from app.enums.user_enum import AuthProvider, UserStatus
 from app.models.otp import OTP
 from app.models.user import User
 from app.services.webengage_email import send_email as webengage_send_email
+from app.utils_helper.helpers import verify_apple_token, verify_google_token
 from app.utils_helper.messages import MSG
 
 
@@ -381,6 +382,93 @@ class AuthService:
             except Exception:
                 pass
         return
+
+    async def social_login(self, provider: str, access_token: str) -> dict[str, Any]:
+        try:
+            provider_enum = AuthProvider(provider)
+        except Exception:
+            raise ValueError(MSG.AUTH["ERROR"]["INVALID_SOCIAL_PROVIDER"])
+
+        payload: dict[str, Any] | None = None
+        if provider_enum == AuthProvider.google:
+            payload = await self._verify_google_token(access_token)
+        elif provider_enum == AuthProvider.apple:
+            payload = await self._verify_apple_token(access_token)
+
+        if not payload:
+            raise ValueError(MSG.AUTH["ERROR"]["INVALID_SOCIAL_TOKEN"])
+
+        email = payload.get("email")
+        provider_id = payload.get("sub") or payload.get("id")
+        if not email or not provider_id:
+            raise ValueError(MSG.AUTH["ERROR"]["INVALID_SOCIAL_TOKEN"])
+
+        # create or find user
+        with Session(get_engine()) as session:
+            # try to find by provider id first
+            statement = select(User).where(
+                User.provider == provider_enum, User.provider_id == str(provider_id)
+            )
+            user = session.exec(statement).first()
+
+            if not user:
+                # try find by email
+                user = session.exec(select(User).where(User.email == email)).first()
+
+            if not user:
+                # create a new user for this social account
+                random_pw = str(uuid4())
+                hashed = security.get_password_hash(random_pw)
+                user = User(
+                    email=email,
+                    hashed_password=hashed,
+                    status=UserStatus.active,
+                    provider=provider_enum,
+                    provider_id=str(provider_id),
+                )
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            else:
+                # ensure provider fields are set for existing user
+                changed = False
+                if getattr(user, "provider", None) is None:
+                    user.provider = provider_enum
+                    changed = True
+                if getattr(user, "provider_id", None) is None:
+                    user.provider_id = str(provider_id)
+                    changed = True
+                if changed:
+                    session.add(user)
+                    session.commit()
+                    session.refresh(user)
+
+            # generate access token
+            expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            access = security.create_access_token(
+                subject=str(user.id), expires_delta=expires
+            )
+            try:
+                user.token = access
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            except Exception:
+                session.rollback()
+
+            user_data = {
+                "id": str(user.id),
+                "email": str(user.email),
+                "role": str(user.role) if hasattr(user, "role") else None,
+            }
+
+            return {"access_token": access, "token_type": "bearer", "user": user_data}
+
+    async def _verify_google_token(self, id_token: str) -> dict[str, Any] | None:
+        return await verify_google_token(id_token)
+
+    async def _verify_apple_token(self, id_token: str) -> dict[str, Any] | None:
+        return await verify_apple_token(id_token)
 
 
 def create_user(session: Session, user_create: Any) -> User:

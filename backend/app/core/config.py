@@ -157,6 +157,11 @@ class Settings(BaseSettings):
     WEBENGAGE_CAMPAIGN_REGISTER_ID: str | None = None
     WEBENGAGE_CAMPAIGN_FORGOT_PASSWORD_ID: str | None = None
 
+    # Google OAuth2 settings for Google Drive integration
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

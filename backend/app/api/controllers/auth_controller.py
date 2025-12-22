@@ -9,6 +9,7 @@ from app.schemas.user import (
     LoginSchema,
     ResendEmailSchema,
     ResetPasswordSchema,
+    SocialLoginSchema,
     VerifySchema,
 )
 from app.services.auth_service import AuthService
@@ -157,6 +158,19 @@ class UserController:
             return self._success(
                 data=result,
                 message=MSG.AUTH["SUCCESS"]["PASSWORD_RESET_SUCCESSFUL"],
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            return self._error(exc)
+
+    async def social_login(self, request: SocialLoginSchema) -> JSONResponse:
+        try:
+            result = await self.service.social_login(
+                provider=request.provider, access_token=request.access_token
+            )
+            return self._success(
+                data=result,
+                message=MSG.AUTH["SUCCESS"]["USER_LOGGED_IN"],
                 status_code=status.HTTP_200_OK,
             )
         except Exception as exc:

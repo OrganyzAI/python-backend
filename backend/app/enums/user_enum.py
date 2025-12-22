@@ -10,3 +10,8 @@ class UserStatus(str, Enum):
     active = "active"
     inactive = "inactive"
     banned = "banned"
+
+
+class AuthProvider(str, Enum):
+    google = "google"
+    apple = "apple"

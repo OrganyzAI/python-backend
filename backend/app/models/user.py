@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.enums.user_enum import UserRole, UserStatus
+from app.enums.user_enum import AuthProvider, UserRole, UserStatus
 
 if TYPE_CHECKING:
     from app.models.otp import OTP
@@ -18,6 +18,8 @@ class User(SQLModel, table=True):
     status: UserStatus = Field(default=UserStatus.inactive)
     role: UserRole = Field(default=UserRole.user)
     token: str | None = Field(default=None, index=True, unique=True)
+    provider: AuthProvider | None = Field(default=None, index=True)
+    provider_id: str | None = Field(default=None, index=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
