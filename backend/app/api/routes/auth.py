@@ -6,6 +6,7 @@ from app.schemas.user import (
     LoginSchema,
     ResendEmailSchema,
     ResetPasswordSchema,
+    SocialLoginSchema,
     VerifySchema,
 )
 
@@ -42,6 +43,11 @@ async def forgot_password(request: ResendEmailSchema) -> JSONResponse:
 @router.post("/reset-password")
 async def reset_password(request: ResetPasswordSchema) -> JSONResponse:
     return await controller.reset_password(request)
+
+
+@router.post("/social-login")
+async def social_login(request: SocialLoginSchema) -> JSONResponse:
+    return await controller.social_login(request)
 
 
 @router.post("/logout")
