@@ -59,10 +59,10 @@ async def verify_google_token(token: str) -> dict[str, Any] | None:
                 headers={"Authorization": f"Bearer {token}"},
             )
             if resp.status_code == 200:
-                data: dict[str, Any] = resp.json()
+                user_data: dict[str, Any] = resp.json()
                 # Normalize the response to match id_token format
                 # userinfo returns 'sub' for user ID, which matches id_token format
-                return data
+                return user_data
 
             return None
     except Exception:
