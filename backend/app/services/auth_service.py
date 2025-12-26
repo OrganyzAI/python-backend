@@ -128,13 +128,10 @@ class AuthService:
                 "id": str(user.id),
                 "email": str(user.email),
                 "role": str(user.role) if hasattr(user, "role") else None,
+                "token": access_token,
             }
 
-            return {
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user": user_data,
-            }
+            return user_data
 
     async def register(
         self,

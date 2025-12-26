@@ -161,6 +161,12 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
+    GOOGLE_DRIVE_RESPONSE_TYPE: str | None = None
+    GOOGLE_DRIVE_PROMPT: str | None = None
+    GOOGLE_DRIVE_ACCESS_TYPE: str | None = None
+
+    # Apple Sign-In settings
+    APPLE_CLIENT_ID: str | None = None
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":

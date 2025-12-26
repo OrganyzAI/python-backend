@@ -85,6 +85,38 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# Customize OpenAPI schema to include security scheme
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    from fastapi.openapi.utils import get_openapi
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version="1.0.0",
+        description=app.description,
+        routes=app.routes,
+    )
+    # Merge with existing security schemes if any, or create new
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    if "securitySchemes" not in openapi_schema["components"]:
+        openapi_schema["components"]["securitySchemes"] = {}
+
+    # Add Bearer token security scheme
+    openapi_schema["components"]["securitySchemes"]["bearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token (without 'Bearer' prefix)",
+    }
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
 # Set all CORS enabled origins
 if settings.all_cors_origins:
     app.add_middleware(
