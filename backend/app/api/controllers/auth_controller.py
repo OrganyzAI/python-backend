@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi.responses import JSONResponse
+from sqlmodel import SQLModel
 from starlette import status
 
 from app.core.exceptions import AppException
@@ -9,6 +10,7 @@ from app.schemas.user import (
     LoginSchema,
     ResendEmailSchema,
     ResetPasswordSchema,
+    SocialLoginSchema,
     VerifySchema,
 )
 from app.services.auth_service import AuthService
@@ -40,6 +42,9 @@ class UserController:
                     data_payload = {
                         k: v for k, v in data_payload.items() if k != "message"
                     }
+        elif isinstance(data, SQLModel):
+            # Convert SQLModel to dict with proper UUID serialization
+            data_payload = data.model_dump(mode="json")
 
         payload = self.response_class(
             success=True,
@@ -47,7 +52,7 @@ class UserController:
             data=data_payload,
             errors=None,
             meta=None,
-        ).model_dump(exclude_none=True)
+        ).model_dump(mode="json", exclude_none=True)
 
         return JSONResponse(status_code=status_code, content=payload)
 
@@ -68,7 +73,7 @@ class UserController:
                 message=getattr(exc, "message", str(exc)),
                 errors=getattr(exc, "details", None),
                 data=None,
-            ).model_dump(exclude_none=True)
+            ).model_dump(mode="json", exclude_none=True)
             return JSONResponse(status_code=int(code), content=payload)
 
         code = code if code is not None else status.HTTP_400_BAD_REQUEST
@@ -79,7 +84,7 @@ class UserController:
             message=msg,
             errors=errors,
             data=None,
-        ).model_dump(exclude_none=True)
+        ).model_dump(mode="json", exclude_none=True)
 
         return JSONResponse(status_code=int(code), content=payload)
 
@@ -157,6 +162,19 @@ class UserController:
             return self._success(
                 data=result,
                 message=MSG.AUTH["SUCCESS"]["PASSWORD_RESET_SUCCESSFUL"],
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as exc:
+            return self._error(exc)
+
+    async def social_login(self, request: SocialLoginSchema) -> JSONResponse:
+        try:
+            result = await self.service.social_login(
+                provider=request.provider, access_token=request.access_token
+            )
+            return self._success(
+                data=result,
+                message=MSG.AUTH["SUCCESS"]["USER_LOGGED_IN"],
                 status_code=status.HTTP_200_OK,
             )
         except Exception as exc:
