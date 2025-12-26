@@ -5,7 +5,6 @@ import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import Any
-from urllib.parse import urlencode
 
 import httpx
 from sqlmodel import Session, select
@@ -19,154 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 class IntegrationService:
-    async def connect_account(
-        self,
-        user_id: uuid.UUID,
-        provider: str,
-        provider_account_id: str | None = None,
-        access_token: str | None = None,
-        refresh_token: str | None = None,
-        extra_data: dict[str, Any] | None = None,
-        session: Session | None = None,
-    ) -> ExternalAccount:
-        own = False
-        if session is None:
-            session = Session(get_engine())
-            own = True
-        account = ExternalAccount(
-            user_id=user_id,
-            provider=provider,
-            provider_account_id=provider_account_id,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            extra_data=extra_data,
-        )
-        try:
-            session.add(account)
-            session.commit()
-            session.refresh(account)
-            return account
-        finally:
-            if own:
-                session.close()
-
-    def get_google_drive_auth_url(self, user_id: uuid.UUID) -> dict[str, str]:
-        """Generate Google Drive OAuth2 authorization URL"""
-        if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_REDIRECT_URI:
-            raise ValueError("Google OAuth2 credentials not configured")
-        scopes = [
-            "https://www.googleapis.com/auth/drive",
-            "https://www.googleapis.com/auth/drive.file",
-        ]
-        state = secrets.token_urlsafe(32)
-
-        params = {
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-            "response_type": settings.GOOGLE_DRIVE_RESPONSE_TYPE or "code",
-            "scope": " ".join(scopes),
-            "access_type": settings.GOOGLE_DRIVE_ACCESS_TYPE or "offline",
-            "prompt": settings.GOOGLE_DRIVE_PROMPT or "consent",
-            "state": state,
-        }
-
-        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
-
-        return {
-            "auth_url": auth_url,
-            "state": state,
-        }
-
-    async def exchange_google_drive_code(
-        self,
-        code: str,
-        user_id: uuid.UUID,
-        session: Session | None = None,
-    ) -> ExternalAccount:
-        """Exchange authorization code for access token and refresh token"""
-        if (
-            not settings.GOOGLE_CLIENT_ID
-            or not settings.GOOGLE_CLIENT_SECRET
-            or not settings.GOOGLE_REDIRECT_URI
-        ):
-            raise ValueError("Google OAuth2 credentials not configured")
-
-        # Exchange code for tokens
-        token_url = "https://oauth2.googleapis.com/token"
-        token_data = {
-            "code": code,
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code",
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(token_url, data=token_data)
-            if response.status_code != 200:
-                error_detail = response.text
-                logger.error(f"Failed to exchange Google Drive code: {error_detail}")
-                raise ValueError(
-                    f"Failed to exchange authorization code: {error_detail}"
-                )
-
-            token_response = response.json()
-
-        access_token = token_response.get("access_token")
-        refresh_token = token_response.get("refresh_token")
-        expires_in = token_response.get("expires_in", 3600)
-        expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-
-        # Get user info from Google
-        user_info = await self._get_google_user_info(access_token)
-        provider_account_id = user_info.get("id") or user_info.get("sub")
-
-        # Check if account already exists
-        own = False
-        if session is None:
-            session = Session(get_engine())
-            own = True
-
-        try:
-            stmt = select(ExternalAccount).where(
-                ExternalAccount.user_id == user_id,
-                ExternalAccount.provider == EXTERNAL_ACCOUNT_PROVIDER.GOOGLE_DRIVE,
-            )
-            existing_account = session.exec(stmt).first()
-
-            if existing_account:
-                # Update existing account
-                existing_account.access_token = access_token
-                existing_account.refresh_token = (
-                    refresh_token or existing_account.refresh_token
-                )
-                existing_account.expires_at = expires_at
-                existing_account.provider_account_id = provider_account_id
-                existing_account.extra_data = user_info
-                existing_account.updated_at = datetime.utcnow()
-                session.add(existing_account)
-                session.commit()
-                session.refresh(existing_account)
-                return existing_account
-            else:
-                # Create new account
-                account = ExternalAccount(
-                    user_id=user_id,
-                    provider=EXTERNAL_ACCOUNT_PROVIDER.GOOGLE_DRIVE,
-                    provider_account_id=provider_account_id,
-                    access_token=access_token,
-                    refresh_token=refresh_token,
-                    expires_at=expires_at,
-                    extra_data=user_info,
-                )
-                session.add(account)
-                session.commit()
-                session.refresh(account)
-                return account
-        finally:
-            if own:
-                session.close()
-
     async def connect_google_drive_with_tokens(
         self,
         access_token: str,
@@ -180,16 +31,13 @@ class IntegrationService:
         if not access_token:
             raise ValueError("Access token is required")
 
-        # Calculate expiration time
         expires_at = None
         if expires_in:
             expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
 
-        # Get user info from Google
         user_info = await self._get_google_user_info(access_token)
         provider_account_id = user_info.get("id") or user_info.get("sub")
 
-        # Add token info to extra_data
         token_info = {
             "scope": scope,
             "token_type": "Bearer",
@@ -366,7 +214,7 @@ class IntegrationService:
         access_token = await self._ensure_valid_token(account, session=session)
 
         # Upload file metadata first
-        metadata = {
+        metadata: dict[str, Any] = {
             "name": file_name,
         }
         if parent_folder_id:
@@ -374,7 +222,7 @@ class IntegrationService:
 
         # Create multipart upload
         boundary = secrets.token_urlsafe(16)
-        body_parts = []
+        body_parts: list[str | bytes] = []
 
         # Metadata part
         body_parts.append(
@@ -406,7 +254,8 @@ class IntegrationService:
                 logger.error(f"Failed to upload file to Google Drive: {error_detail}")
                 raise ValueError(f"Failed to upload file: {error_detail}")
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     async def list_google_drive_files(
         self,
@@ -442,7 +291,8 @@ class IntegrationService:
                 logger.error(f"Failed to list Google Drive files: {error_detail}")
                 raise ValueError(f"Failed to list files: {error_detail}")
 
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     async def read_google_drive_file(
         self,
@@ -582,7 +432,7 @@ class IntegrationService:
                 metadata["name"] = file_name
 
             boundary = secrets.token_urlsafe(16)
-            body_parts = []
+            body_parts: list[str | bytes] = []
 
             # Metadata part
             if metadata:
@@ -616,7 +466,8 @@ class IntegrationService:
                     logger.error(f"Failed to update Google Drive file: {error_detail}")
                     raise ValueError(f"Failed to update file: {error_detail}")
 
-                return response.json()
+                multipart_result: dict[str, Any] = response.json()
+                return multipart_result
 
         # If only updating content
         elif file_content is not None:
@@ -637,7 +488,8 @@ class IntegrationService:
                     )
                     raise ValueError(f"Failed to update file content: {error_detail}")
 
-                return response.json()
+                content_result: dict[str, Any] = response.json()
+                return content_result
 
         # If only updating metadata
         elif file_name is not None:
@@ -657,7 +509,8 @@ class IntegrationService:
                     )
                     raise ValueError(f"Failed to update file metadata: {error_detail}")
 
-                return response.json()
+                metadata_result: dict[str, Any] = response.json()
+                return metadata_result
 
         else:
             raise ValueError("No update parameters provided")

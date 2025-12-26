@@ -2,7 +2,7 @@ import logging
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import cast
+from typing import Any, cast
 
 import sentry_sdk
 from fastapi import FastAPI, Request, Response
@@ -87,7 +87,7 @@ app = FastAPI(
 
 
 # Customize OpenAPI schema to include security scheme
-def custom_openapi():
+def custom_openapi() -> dict[str, Any]:
     if app.openapi_schema:
         return app.openapi_schema
     from fastapi.openapi.utils import get_openapi
@@ -115,7 +115,7 @@ def custom_openapi():
     return app.openapi_schema
 
 
-app.openapi = custom_openapi
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 # Set all CORS enabled origins
 if settings.all_cors_origins:

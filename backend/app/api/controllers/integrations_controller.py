@@ -6,10 +6,7 @@ from sqlmodel import SQLModel
 from starlette import status
 
 from app.core.exceptions import AppException
-from app.schemas.external_account import (
-    ExternalAccountCreate,
-    GoogleDriveTokenResponse,
-)
+from app.schemas.external_account import GoogleDriveTokenResponse
 from app.schemas.response import ResponseSchema
 from app.services.integrations_service import IntegrationService
 
@@ -84,57 +81,6 @@ class IntegrationsController:
         ).model_dump(mode="json", exclude_none=True)
 
         return JSONResponse(status_code=int(code), content=payload)
-
-    async def connect_account(
-        self,
-        request: ExternalAccountCreate,
-        user_id: uuid.UUID,
-    ) -> JSONResponse:
-        try:
-            account = await self.service.connect_account(
-                user_id=user_id,
-                provider=request.provider,
-                provider_account_id=request.provider_account_id,
-                access_token=request.access_token,
-                refresh_token=request.refresh_token,
-                extra_data=request.extra_data,
-            )
-            return self._success(data=account, message="Account connected")
-        except Exception as e:
-            return self._error(message=e)
-
-    async def get_google_drive_auth_url(
-        self,
-        user_id: uuid.UUID,
-    ) -> JSONResponse:
-        """Get Google Drive OAuth2 authorization URL"""
-        try:
-            auth_data = self.service.get_google_drive_auth_url(user_id=user_id)
-            return self._success(
-                data=auth_data,
-                message="Google Drive authorization URL generated",
-            )
-        except Exception as e:
-            return self._error(message=e)
-
-    async def google_drive_callback(
-        self,
-        code: str,
-        user_id: uuid.UUID,
-        state: str | None = None,
-    ) -> JSONResponse:
-        """Handle Google Drive OAuth2 callback"""
-        try:
-            account = await self.service.exchange_google_drive_code(
-                code=code,
-                user_id=user_id,
-            )
-            return self._success(
-                data=account,
-                message="Google Drive account connected successfully",
-            )
-        except Exception as e:
-            return self._error(message=e)
 
     async def connect_google_drive_with_tokens(
         self,
