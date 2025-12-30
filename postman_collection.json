@@ -1,0 +1,314 @@
+{
+    "info": {
+        "name": "FastAPI Chat Completion API",
+        "description": "API collection for testing OpenAI chat completions via OpenRouter with authentication",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "_postman_id": "chat-completion-api",
+        "version": "1.0.0"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{access_token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8000",
+            "type": "string"
+        },
+        {
+            "key": "api_version",
+            "value": "api/v1",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "user_email",
+            "value": "test@example.com",
+            "type": "string"
+        },
+        {
+            "key": "user_password",
+            "value": "Test@12345",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Register User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has success flag\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.success).to.eql(true);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/auth/register",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "auth", "register"]
+                        },
+                        "description": "Register a new user account"
+                    }
+                },
+                {
+                    "name": "Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has access token\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData.data).to.have.property('access_token');",
+                                    "    ",
+                                    "    // Save the token to collection variables",
+                                    "    pm.collectionVariables.set(\"access_token\", jsonData.data.access_token);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"{{user_email}}\",\n    \"password\": \"{{user_password}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/auth/login",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "auth", "login"]
+                        },
+                        "description": "Login to get access token"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Chat Completion",
+            "item": [
+                {
+                    "name": "Create Chat Completion",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "pm.test(\"Status code is 200\", function () {",
+                                    "    pm.response.to.have.status(200);",
+                                    "});",
+                                    "",
+                                    "pm.test(\"Response has completion\", function () {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.expect(jsonData).to.have.property('choices');",
+                                    "    pm.expect(jsonData.choices).to.be.an('array');",
+                                    "    pm.expect(jsonData.choices.length).to.be.greaterThan(0);",
+                                    "});"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        },
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "exec": [
+                                    "// Ensure we have an access token",
+                                    "if (!pm.collectionVariables.get(\"access_token\")) {",
+                                    "    console.log(\"No access token found. Please run the Login request first.\");",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, how are you?\"\n        }\n    ],\n    \"model\": \"openai/gpt-3.5-turbo\",\n    \"temperature\": 0.7,\n    \"max_tokens\": 150\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/completions",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "completions"]
+                        },
+                        "description": "Create a chat completion with OpenAI via OpenRouter"
+                    }
+                },
+                {
+                    "name": "Create Chat Completion (Conversation)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"messages\": [\n        {\n            \"role\": \"system\",\n            \"content\": \"You are a helpful assistant.\"\n        },\n        {\n            \"role\": \"user\",\n            \"content\": \"What is the capital of France?\"\n        },\n        {\n            \"role\": \"assistant\",\n            \"content\": \"The capital of France is Paris.\"\n        },\n        {\n            \"role\": \"user\",\n            \"content\": \"What is it famous for?\"\n        }\n    ],\n    \"model\": \"openai/gpt-3.5-turbo\",\n    \"temperature\": 0.7,\n    \"max_tokens\": 200\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/completions",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "completions"]
+                        },
+                        "description": "Create a chat completion with conversation history"
+                    }
+                },
+                {
+                    "name": "Create Chat Completion (GPT-4)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"Write a haiku about programming\"\n        }\n    ],\n    \"model\": \"openai/gpt-4\",\n    \"temperature\": 0.9,\n    \"max_tokens\": 100\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/completions",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "completions"]
+                        },
+                        "description": "Create a chat completion using GPT-4"
+                    }
+                },
+                {
+                    "name": "List Available Models",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/models",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "models"]
+                        },
+                        "description": "Get a list of available AI models"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Error Cases",
+            "item": [
+                {
+                    "name": "Unauthorized Request",
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"This should fail\"\n        }\n    ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/completions",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "completions"]
+                        },
+                        "description": "Test unauthorized access (no token)"
+                    }
+                },
+                {
+                    "name": "Invalid Token",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "invalid.token.here",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"messages\": [\n        {\n            \"role\": \"user\",\n            \"content\": \"This should fail\"\n        }\n    ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/{{api_version}}/chat/completions",
+                            "host": ["{{base_url}}"],
+                            "path": ["{{api_version}}", "chat", "completions"]
+                        },
+                        "description": "Test invalid token"
+                    }
+                }
+            ]
+        }
+    ]
+}

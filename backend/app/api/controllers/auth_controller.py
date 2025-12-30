@@ -32,7 +32,10 @@ class UserController:
 
         if isinstance(data, dict):
             msg = data.get("message") or message
-            if "user" in data:
+            # For login response, include both user and access_token
+            if "access_token" in data:
+                data_payload = data
+            elif "user" in data:
                 data_payload = data.get("user")
             elif "data" in data:
                 data_payload = data.get("data")

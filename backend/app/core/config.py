@@ -157,6 +157,10 @@ class Settings(BaseSettings):
     WEBENGAGE_CAMPAIGN_REGISTER_ID: str | None = None
     WEBENGAGE_CAMPAIGN_FORGOT_PASSWORD_ID: str | None = None
 
+    # OpenRouter API settings for OpenAI integration
+    OPENROUTER_API_KEY: str | None = None
+    OPENROUTER_BASE_URL: HttpUrl = "https://openrouter.ai/api/v1"
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

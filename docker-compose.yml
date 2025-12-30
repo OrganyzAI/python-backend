@@ -1,11 +1,11 @@
 services:
 
   db:
-    build:
-      context: ./docker/postgres-pgvector
-    image: organyz/postgres-pgvector:18
+    image: postgres:17
     user: "0"
     restart: always
+    ports:
+      - "5432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
@@ -29,6 +29,21 @@ services:
       - redis-data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -158,6 +173,7 @@ services:
 volumes:
   app-db-data:
   redis-data:
+  ollama-data:
 
 
 networks:
