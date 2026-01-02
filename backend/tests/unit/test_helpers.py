@@ -5,8 +5,6 @@ import uuid
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
-import jwt
 import pytest
 
 from app.core.config import settings
@@ -142,29 +140,74 @@ async def test_verify_google_token_invalid_status():
 
 @pytest.mark.asyncio
 async def test_verify_google_token_audience_mismatch():
-    """Test verify_google_token with audience mismatch."""
+    """Test verify_google_token with audience mismatch (line 53)."""
     mock_data = {
         "aud": "wrong_client_id",
         "email": "test@example.com",
     }
 
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json = AsyncMock(return_value=mock_data)
+    mock_response.json.return_value = mock_data
 
     mock_client_instance = AsyncMock()
     mock_client_instance.get = AsyncMock(return_value=mock_response)
 
-    mock_client_class = AsyncMock()
-    mock_client_class.return_value.__aenter__ = AsyncMock(
-        return_value=mock_client_instance
-    )
-    mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+    # Create a proper async context manager
+    class AsyncContextManager:
+        async def __aenter__(self):
+            return mock_client_instance
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    mock_client_class = MagicMock(return_value=AsyncContextManager())
 
     with patch("app.utils_helper.helpers.httpx.AsyncClient", mock_client_class):
         with patch.object(settings, "GOOGLE_CLIENT_ID", "correct_client_id"):
             result = await verify_google_token("test_token")
             assert result is None
+
+
+@pytest.mark.asyncio
+async def test_verify_google_token_fallback_to_access_token():
+    """Test verify_google_token fallback to access_token when id_token fails (lines 57-67)."""
+    # First request (id_token) fails with 400
+    mock_response_id_token = MagicMock()
+    mock_response_id_token.status_code = 400
+
+    # Second request (access_token) succeeds
+    mock_user_data = {
+        "sub": "123456789",
+        "email": "test@example.com",
+        "name": "Test User",
+    }
+    mock_response_access_token = MagicMock()
+    mock_response_access_token.status_code = 200
+    mock_response_access_token.json.return_value = mock_user_data
+
+    mock_client_instance = AsyncMock()
+    # First call returns 400 (id_token fails), second call returns 200 (access_token succeeds)
+    mock_client_instance.get = AsyncMock(
+        side_effect=[mock_response_id_token, mock_response_access_token]
+    )
+
+    # Create a proper async context manager
+    class AsyncContextManager:
+        async def __aenter__(self):
+            return mock_client_instance
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    mock_client_class = MagicMock(return_value=AsyncContextManager())
+
+    with patch("app.utils_helper.helpers.httpx.AsyncClient", mock_client_class):
+        result = await verify_google_token("test_token")
+        # Should return user data from access_token endpoint
+        assert result == mock_user_data
+        # Verify both endpoints were called
+        assert mock_client_instance.get.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -181,62 +224,60 @@ async def test_verify_google_token_exception():
         assert result is None
 
 
-# @pytest.mark.asyncio
-# async def test_verify_apple_token_success():
-#     """Test verify_apple_token with successful verification (lines 55-72)."""
-#     mock_payload = {
-#         "sub": "123456789",
-#         "email": "test@example.com",
-#     }
+@pytest.mark.asyncio
+async def test_verify_apple_token_success():
+    """Test verify_apple_token with successful verification (line 90)."""
+    mock_payload = {
+        "sub": "123456789",
+        "email": "test@example.com",
+    }
 
-#     # Create a mock signing key with a key attribute
-#     mock_signing_key = MagicMock()
-#     mock_signing_key.key = "mock_public_key"
+    # Create a mock signing key with a key attribute
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = "mock_public_key"
 
-#     # Create a mock JWK client instance
-#     mock_jwk_client_instance = MagicMock()
-#     mock_jwk_client_instance.get_signing_key_from_jwt = MagicMock(
-#         return_value=mock_signing_key
-#     )
+    # Create a mock JWK client instance
+    mock_jwk_client_instance = MagicMock()
+    mock_jwk_client_instance.get_signing_key_from_jwt = MagicMock(
+        return_value=mock_signing_key
+    )
 
-#     # Mock PyJWKClient to return our mock instance when instantiated
-#     with patch("app.utils_helper.helpers.jwt.PyJWKClient") as mock_jwk_client:
-#         mock_jwk_client.return_value = mock_jwk_client_instance
-#         with patch("app.utils_helper.helpers.jwt.decode", return_value=mock_payload):
-#             with patch.object(settings, "APPLE_CLIENT_ID", "test_client_id"):
-#                 result = await verify_apple_token("test_token")
-#                 # Verify the function returns the expected payload
-#                 # This exercises all code paths including lines 63-71
-#                 assert result == mock_payload
+    # Mock PyJWKClient to return our mock instance when instantiated
+    with patch("app.utils_helper.helpers.jwt.PyJWKClient") as mock_jwk_client:
+        mock_jwk_client.return_value = mock_jwk_client_instance
+        with patch("app.utils_helper.helpers.jwt.decode", return_value=mock_payload):
+            with patch.object(settings, "APPLE_CLIENT_ID", "test_client_id"):
+                result = await verify_apple_token("test_token")
+                # Verify the function returns the expected payload (line 90)
+                assert result == mock_payload
 
 
-# @pytest.mark.asyncio
-# async def test_verify_apple_token_no_audience():
-#     """Test verify_apple_token without audience configured."""
-#     mock_payload = {
-#         "sub": "123456789",
-#         "email": "test@example.com",
-#     }
+@pytest.mark.asyncio
+async def test_verify_apple_token_no_audience():
+    """Test verify_apple_token without audience configured."""
+    mock_payload = {
+        "sub": "123456789",
+        "email": "test@example.com",
+    }
 
-#     # Create a mock signing key with a key attribute
-#     mock_signing_key = MagicMock()
-#     mock_signing_key.key = "mock_public_key"
+    # Create a mock signing key with a key attribute
+    mock_signing_key = MagicMock()
+    mock_signing_key.key = "mock_public_key"
 
-#     # Create a mock JWK client instance
-#     mock_jwk_client_instance = MagicMock()
-#     mock_jwk_client_instance.get_signing_key_from_jwt = MagicMock(
-#         return_value=mock_signing_key
-#     )
+    # Create a mock JWK client instance
+    mock_jwk_client_instance = MagicMock()
+    mock_jwk_client_instance.get_signing_key_from_jwt = MagicMock(
+        return_value=mock_signing_key
+    )
 
-#     # Mock PyJWKClient to return our mock instance when instantiated
-#     with patch("app.utils_helper.helpers.jwt.PyJWKClient") as mock_jwk_client:
-#         mock_jwk_client.return_value = mock_jwk_client_instance
-#         with patch("app.utils_helper.helpers.jwt.decode", return_value=mock_payload):
-#             with patch.object(settings, "APPLE_CLIENT_ID", None):
-#                 result = await verify_apple_token("test_token")
-#                 # Verify the function returns the expected payload
-#                 # This exercises all code paths including lines 63-64 with audience=None
-#                 assert result == mock_payload
+    # Mock PyJWKClient to return our mock instance when instantiated
+    with patch("app.utils_helper.helpers.jwt.PyJWKClient") as mock_jwk_client:
+        mock_jwk_client.return_value = mock_jwk_client_instance
+        with patch("app.utils_helper.helpers.jwt.decode", return_value=mock_payload):
+            with patch.object(settings, "APPLE_CLIENT_ID", None):
+                result = await verify_apple_token("test_token")
+                # Verify the function returns the expected payload
+                assert result == mock_payload
 
 
 @pytest.mark.asyncio
@@ -266,3 +307,38 @@ async def test_verify_apple_token_decode_exception():
 
             result = await verify_apple_token("test_token")
             assert result is None
+
+
+@pytest.mark.asyncio
+async def test_verify_google_token_access_token_fails():
+    """Test verify_google_token when access_token endpoint fails (line 67)."""
+    # First request (id_token) fails with 400
+    mock_response_id_token = MagicMock()
+    mock_response_id_token.status_code = 400
+
+    # Second request (access_token) also fails with non-200 status
+    mock_response_access_token = MagicMock()
+    mock_response_access_token.status_code = 401  # Unauthorized
+
+    mock_client_instance = AsyncMock()
+    # Both calls return non-200 status codes
+    mock_client_instance.get = AsyncMock(
+        side_effect=[mock_response_id_token, mock_response_access_token]
+    )
+
+    # Create a proper async context manager
+    class AsyncContextManager:
+        async def __aenter__(self):
+            return mock_client_instance
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    mock_client_class = MagicMock(return_value=AsyncContextManager())
+
+    with patch("app.utils_helper.helpers.httpx.AsyncClient", mock_client_class):
+        result = await verify_google_token("test_token")
+        # Should return None when access_token endpoint fails (line 67)
+        assert result is None
+        # Verify both endpoints were called
+        assert mock_client_instance.get.call_count == 2
