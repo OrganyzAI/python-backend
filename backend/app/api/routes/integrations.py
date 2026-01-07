@@ -7,12 +7,12 @@ from app.api.controllers.integrations_controller import IntegrationsController
 from app.api.deps import get_current_user_id
 from app.schemas.external_account import GoogleDriveTokenResponse
 
-router = APIRouter(prefix="/integrations", tags=["integrations"])
+router = APIRouter(prefix="/google-drive", tags=["Google Drive"])
 controller = IntegrationsController()
 
 
 @router.post(
-    "/google-drive/token",
+    "/token",
 )
 async def connect_google_drive_with_tokens(
     token_response: GoogleDriveTokenResponse,
@@ -25,7 +25,7 @@ async def connect_google_drive_with_tokens(
 
 
 @router.post(
-    "/google-drive/files/upload",
+    "/files/upload",
 )
 async def upload_file_to_google_drive(
     file: UploadFile = File(...),
@@ -46,7 +46,7 @@ async def upload_file_to_google_drive(
 
 
 @router.get(
-    "/google-drive/files",
+    "/files",
 )
 async def list_google_drive_files(
     page_size: int = Query(default=100, ge=1, le=1000),
@@ -64,7 +64,7 @@ async def list_google_drive_files(
 
 
 @router.get(
-    "/google-drive/files/{file_id}",
+    "/files/{file_id}",
 )
 async def read_google_drive_file(
     file_id: str,
@@ -78,7 +78,7 @@ async def read_google_drive_file(
 
 
 @router.get(
-    "/google-drive/files/{file_id}/download",
+    "/files/{file_id}/download",
     response_model=None,
 )
 async def download_google_drive_file(
@@ -93,7 +93,7 @@ async def download_google_drive_file(
 
 
 @router.patch(
-    "/google-drive/files/{file_id}",
+    "/files/{file_id}",
 )
 async def update_google_drive_file(
     file_id: str,

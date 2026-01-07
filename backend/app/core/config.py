@@ -165,6 +165,27 @@ class Settings(BaseSettings):
     GOOGLE_DRIVE_PROMPT: str | None = None
     GOOGLE_DRIVE_ACCESS_TYPE: str | None = None
 
+    # Microsoft OAuth2 settings for OneDrive integration
+    MICROSOFT_CLIENT_ID: str | None = None
+    MICROSOFT_CLIENT_SECRET: str | None = None
+    MICROSOFT_REDIRECT_URI: str | None = None
+    MICROSOFT_TENANT_ID: str | None = None
+
+    # Dropbox OAuth2 settings for Dropbox integration
+    DROPBOX_CLIENT_SECRET: str | None = None
+    DROPBOX_REDIRECT_URI: str | None = None
+    DROPBOX_APP_KEY: str | None = None
+    DROPBOX_ACCESS_TOKEN: str | None = None
+    DROPBOX_SCOPE: str | None = None
+    DROPBOX_RESPONSE_TYPE: str | None = None
+    DROPBOX_AUTHORIZATION_URL: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def DROPBOX_CLIENT_ID(self) -> str | None:
+        """Alias for DROPBOX_APP_KEY for backward compatibility."""
+        return self.DROPBOX_APP_KEY
+
     # Apple Sign-In settings
     APPLE_CLIENT_ID: str | None = None
 
