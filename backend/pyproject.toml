@@ -25,6 +25,8 @@ dependencies = [
     "celery[redis]<6,>=5.3.0",
     "boto3>=1.26",
     "aioboto3>=10.5",
+    "dropbox>=11.36.0,<12.0.0",
+    "setuptools>=65.0.0",
     "coverage<8.0.0,>=7.4.3",
 ]
 
@@ -40,11 +42,7 @@ dev-dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest<8.0.0,>=7.4.3",
-    "pytest-asyncio",
-    "coverage<8.0.0,>=7.4.3",
-]
+dev = ["pytest<8.0.0,>=7.4.3", "pytest-asyncio", "coverage<8.0.0,>=7.4.3"]
 
 [build-system]
 requires = ["hatchling"]
@@ -60,21 +58,21 @@ exclude = ["alembic"]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
     "ARG001", # unused arguments in functions
     "T201",   # print statements are not allowed
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "W191",  # indentation contains tabs
-    "B904",  # Allow raising exceptions without from e, for HTTPException
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "W191", # indentation contains tabs
+    "B904", # Allow raising exceptions without from e, for HTTPException
 ]
 
 [tool.ruff.lint.pyupgrade]

@@ -7,3 +7,4 @@ class EXTERNAL_ACCOUNT_PROVIDER(str, Enum):
     CHATGPT = "chatgpt"
     ONE_DRIVE = "one_drive"
     NOTION = "notion"
+    DROPBOX = "dropbox"
