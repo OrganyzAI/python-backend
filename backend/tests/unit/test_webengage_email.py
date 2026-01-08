@@ -37,9 +37,9 @@ async def test_send_email_success(monkeypatch):
     monkeypatch.setattr(config.settings, "WEBENGAGE_API_KEY", "fake-key", raising=False)
 
     # Patch httpx.AsyncClient used by the module
-    import httpx as _httpx
-
-    monkeypatch.setattr(_httpx, "AsyncClient", DummyAsyncClient)
+    monkeypatch.setattr(
+        "app.services.webengage_email.httpx.AsyncClient", DummyAsyncClient
+    )
 
     result = await send_email(
         to_email="to@example.com",
@@ -54,8 +54,9 @@ async def test_send_email_success(monkeypatch):
 @pytest.mark.asyncio
 async def test_send_email_not_configured(monkeypatch):
     # Ensure webengage disabled
-    # Disable webengage by clearing the API URL (computed property reads this)
+    # Disable webengage by clearing both the API URL and API KEY (computed property checks both)
     monkeypatch.setattr(config.settings, "WEBENGAGE_API_URL", None, raising=False)
+    monkeypatch.setattr(config.settings, "WEBENGAGE_API_KEY", None, raising=False)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="WebEngage is not enabled"):
         await send_email("a@b.com", "s", campaign_id="test-campaign")

@@ -33,6 +33,9 @@ def test_external_account_model_creation(db: Session):
         expires_at=datetime.utcnow(),
         extra_data={"key": "value"},
     )
+    db.add(external_account)
+    db.commit()
+    db.refresh(external_account)
 
     assert external_account.user_id == user.id
     assert external_account.provider == "google"

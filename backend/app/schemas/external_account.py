@@ -12,3 +12,25 @@ class GoogleDriveTokenResponse(BaseModel):
     )
     token_type: str | None = Field(default="Bearer", description="Token type")
     scope: str | None = Field(None, description="OAuth scopes granted")
+
+
+class OneDriveTokenResponse(BaseModel):
+    access_token: str = Field(..., description="Microsoft OAuth access token")
+    expires_in: int | None = Field(
+        None, description="Access token expiration time in seconds"
+    )
+    ext_expires_in: int | None = Field(
+        None, description="Extended access token expiration time in seconds"
+    )
+    token_type: str | None = Field(default="Bearer", description="Token type")
+    token_source: str | None = Field(None, description="Token source")
+
+
+class DropboxTokenResponse(BaseModel):
+    access_token: str = Field(..., description="Dropbox OAuth access token")
+    expires_in: int | None = Field(
+        None, description="Access token expiration time in seconds"
+    )
+    token_type: str | None = Field(default="Bearer", description="Token type")
+    refresh_token: str | None = Field(None, description="Dropbox OAuth refresh token")
+    scope: str | None = Field(None, description="OAuth scopes granted")
