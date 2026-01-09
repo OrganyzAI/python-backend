@@ -102,8 +102,6 @@ class SearchController:
         self,
         user_id: uuid.UUID,
         query: str,
-        search_in_content: bool = True,
-        max_file_size: int = 10 * 1024 * 1024,
     ) -> JSONResponse:
         try:
             if not query or not query.strip():
@@ -115,8 +113,6 @@ class SearchController:
             results = await self.service.search_all_providers(
                 user_id=user_id,
                 search_query=query,
-                search_in_content=search_in_content,
-                max_file_size=max_file_size,
             )
 
             return self._success(

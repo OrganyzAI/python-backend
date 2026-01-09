@@ -59,9 +59,13 @@ class TestConnectDropboxWithTokens:
         self, client: TestClient, auth_headers: dict[str, str], test_user: User, db: Session
     ):
         """Test successful Dropbox connection."""
+        # expires_in should be ISO 8601 format string for Dropbox (not integer)
+        expires_at = (datetime.utcnow() + timedelta(seconds=3600)).isoformat()
+        # Ensure it's a string type
+        assert isinstance(expires_at, str), "expires_at must be a string"
         token_data = {
             "access_token": "new_token",
-            "expires_in": 3600,
+            "expires_in": expires_at,  # ISO 8601 string format
             "token_type": "Bearer",
             "refresh_token": "refresh_token",
             "scope": "files.content.read files.content.write",

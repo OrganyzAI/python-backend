@@ -27,7 +27,6 @@ class IntegrationService:
         user_id: uuid.UUID | None = None,
         session: Session | None = None,
     ) -> ExternalAccount:
-        """Connect Google Drive account using provided tokens directly"""
         if not access_token:
             raise ValueError("Access token is required")
 
@@ -47,11 +46,9 @@ class IntegrationService:
         else:
             user_info = token_info
 
-        # User ID is required
         if not user_id:
             raise ValueError("User ID is required")
 
-        # Check if account already exists
         own = False
         if session is None:
             session = Session(get_engine())
@@ -65,7 +62,6 @@ class IntegrationService:
             existing_account = session.exec(stmt).first()
 
             if existing_account:
-                # Update existing account
                 existing_account.access_token = access_token
                 existing_account.refresh_token = (
                     refresh_token or existing_account.refresh_token
@@ -79,7 +75,6 @@ class IntegrationService:
                 session.refresh(existing_account)
                 return existing_account
 
-            # Create new account
             account = ExternalAccount(
                 user_id=user_id,
                 provider=EXTERNAL_ACCOUNT_PROVIDER.GOOGLE_DRIVE,
@@ -98,10 +93,9 @@ class IntegrationService:
                 session.close()
 
     async def _get_google_user_info(self, access_token: str) -> dict[str, Any]:
-        """Get user information from Google using access token"""
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
+                f"{settings.GOOGLE_DRIVE_URL}/oauth2/v2/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             if response.status_code != 200:
@@ -115,14 +109,13 @@ class IntegrationService:
         account: ExternalAccount,
         session: Session | None = None,
     ) -> ExternalAccount:
-        """Refresh Google Drive access token using refresh token"""
         if not account.refresh_token:
             raise ValueError("No refresh token available")
 
         if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
             raise ValueError("Google OAuth2 credentials not configured")
 
-        token_url = "https://oauth2.googleapis.com/token"
+        token_url = f"{settings.GOOGLE_DRIVE_URL}/oauth2/token"
         token_data = {
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
@@ -165,7 +158,6 @@ class IntegrationService:
         user_id: uuid.UUID,
         session: Session | None = None,
     ) -> ExternalAccount | None:
-        """Get Google Drive account for user"""
         own = False
         if session is None:
             session = Session(get_engine())
@@ -185,7 +177,6 @@ class IntegrationService:
     async def _ensure_valid_token(
         self, account: ExternalAccount, session: Session | None = None
     ) -> str:
-        """Ensure access token is valid, refresh if needed"""
         if account.expires_at and account.expires_at <= datetime.utcnow():
             if account.refresh_token:
                 account = await self.refresh_google_drive_token(
@@ -206,32 +197,27 @@ class IntegrationService:
         parent_folder_id: str | None = None,
         session: Session | None = None,
     ) -> dict[str, Any]:
-        """Upload a file to Google Drive"""
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
 
-        # Upload file metadata first
         metadata: dict[str, Any] = {
             "name": file_name,
         }
         if parent_folder_id:
             metadata["parents"] = [parent_folder_id]
 
-        # Create multipart upload
         boundary = secrets.token_urlsafe(16)
         body_parts: list[str | bytes] = []
 
-        # Metadata part
         body_parts.append(
             f"--{boundary}\r\n"
             f"Content-Type: application/json; charset=UTF-8\r\n\r\n"
             f"{json.dumps(metadata)}\r\n"
         )
 
-        # File content part
         body_parts.append(f"--{boundary}\r\nContent-Type: {mime_type}\r\n\r\n")
         body_parts.append(file_content)
         body_parts.append(f"\r\n--{boundary}--\r\n")
@@ -241,7 +227,7 @@ class IntegrationService:
             for part in body_parts
         )
 
-        url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+        url = f"{settings.GOOGLE_DRIVE_URL}/upload/drive/v3/files?uploadType=multipart"
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": f"multipart/related; boundary={boundary}",
@@ -265,7 +251,6 @@ class IntegrationService:
         query: str | None = None,
         session: Session | None = None,
     ) -> dict[str, Any]:
-        """List all files in Google Drive"""
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
@@ -281,7 +266,7 @@ class IntegrationService:
         if query:
             params["q"] = query
 
-        url = "https://www.googleapis.com/drive/v3/files"
+        url = f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files"
         headers = {"Authorization": f"Bearer {access_token}"}
 
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -300,15 +285,13 @@ class IntegrationService:
         file_id: str,
         session: Session | None = None,
     ) -> dict[str, Any]:
-        """Read file content from Google Drive"""
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
 
-        # First get file metadata
-        metadata_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+        metadata_url = f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files/{file_id}"
         metadata_headers = {"Authorization": f"Bearer {access_token}"}
         metadata_params = {
             "fields": "id, name, mimeType, size, createdTime, modifiedTime, webViewLink"
@@ -327,9 +310,8 @@ class IntegrationService:
 
             file_metadata = metadata_response.json()
 
-            # Get file content
             content_url = (
-                f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+                f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files/{file_id}?alt=media"
             )
             content_headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -342,7 +324,6 @@ class IntegrationService:
             content_type = content_response.headers.get(
                 "Content-Type", "application/octet-stream"
             )
-            # Base64 encode content for JSON response
             content_base64 = base64.b64encode(content_response.content).decode("utf-8")
 
             return {
@@ -358,15 +339,13 @@ class IntegrationService:
         file_id: str,
         session: Session | None = None,
     ) -> tuple[bytes, str, dict[str, Any]]:
-        """Download file content from Google Drive (returns raw bytes for streaming)"""
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
 
-        # Get file metadata
-        metadata_url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+        metadata_url = f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files/{file_id}"
         metadata_headers = {"Authorization": f"Bearer {access_token}"}
         metadata_params = {
             "fields": "id, name, mimeType, size, createdTime, modifiedTime"
@@ -385,9 +364,8 @@ class IntegrationService:
 
             file_metadata = metadata_response.json()
 
-            # Get file content
             content_url = (
-                f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
+                f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files/{file_id}?alt=media"
             )
             content_headers = {"Authorization": f"Bearer {access_token}"}
 
@@ -416,14 +394,12 @@ class IntegrationService:
         mime_type: str | None = None,
         session: Session | None = None,
     ) -> dict[str, Any]:
-        """Update file content and/or metadata in Google Drive"""
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
 
-        # If updating both content and metadata, use multipart upload
         if file_content is not None and (
             file_name is not None or mime_type is not None
         ):
@@ -434,7 +410,6 @@ class IntegrationService:
             boundary = secrets.token_urlsafe(16)
             body_parts: list[str | bytes] = []
 
-            # Metadata part
             if metadata:
                 body_parts.append(
                     f"--{boundary}\r\n"
@@ -442,7 +417,6 @@ class IntegrationService:
                     f"{json.dumps(metadata)}\r\n"
                 )
 
-            # File content part
             content_type = mime_type or "application/octet-stream"
             body_parts.append(f"--{boundary}\r\nContent-Type: {content_type}\r\n\r\n")
             body_parts.append(file_content)
@@ -453,7 +427,7 @@ class IntegrationService:
                 for part in body_parts
             )
 
-            url = f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=multipart"
+            url = f"{settings.GOOGLE_DRIVE_URL}/upload/drive/v3/files/{file_id}?uploadType=multipart"
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": f"multipart/related; boundary={boundary}",
@@ -469,9 +443,8 @@ class IntegrationService:
                 multipart_result: dict[str, Any] = response.json()
                 return multipart_result
 
-        # If only updating content
         elif file_content is not None:
-            url = f"https://www.googleapis.com/upload/drive/v3/files/{file_id}?uploadType=media"
+            url = f"{settings.GOOGLE_DRIVE_URL}/upload/drive/v3/files/{file_id}?uploadType=media"
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": mime_type or "application/octet-stream",
@@ -491,10 +464,9 @@ class IntegrationService:
                 content_result: dict[str, Any] = response.json()
                 return content_result
 
-        # If only updating metadata
         elif file_name is not None:
             metadata = {"name": file_name}
-            url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+            url = f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files/{file_id}"
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json",
@@ -522,37 +494,46 @@ class IntegrationService:
         search_in_content: bool = True,
         session: Session | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Search files in Google Drive using native search API.
-        This searches both filename and content efficiently using Google's indexed search.
-        """
         account = await self.get_google_drive_account(user_id, session=session)
         if not account:
             raise ValueError("Google Drive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
-        headers = {"Authorization": f"Bearer {access_token}"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
 
-        all_results: list[dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
-        # Google Drive search query: search in both name and fullText (content)
-        # The fullText contains operator searches within file contents for supported file types
-        # Escape single quotes in the query by replacing them with escaped version
         escaped_query = query.replace("'", "\\'")
-        if search_in_content:
-            search_query = f"name contains '{escaped_query}' or fullText contains '{escaped_query}'"
-        else:
-            search_query = f"name contains '{escaped_query}'"
 
-        url = "https://www.googleapis.com/drive/v3/files"
+        if search_in_content:
+            q = (
+                f"(name contains '{escaped_query}' "
+                f"or fullText contains '{escaped_query}') "
+                f"and trashed = false"
+            )
+        else:
+            q = f"name contains '{escaped_query}' and trashed = false"
+
         params: dict[str, Any] = {
-            "q": search_query,
+            "q": q,
             "pageSize": 100,
-            "fields": "nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink)",
+            "fields": (
+                "nextPageToken, "
+                "files(id, name, mimeType, size, "
+                "createdTime, modifiedTime, "
+                "webViewLink, webContentLink, parents)"
+            ),
+            "supportsAllDrives": True,
+            "includeItemsFromAllDrives": True,
+            "corpora": "user",
         }
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            page_token = None
+            page_token: str | None = None
+
             while True:
                 if page_token:
                     params["pageToken"] = page_token
@@ -560,21 +541,45 @@ class IntegrationService:
                     params.pop("pageToken", None)
 
                 try:
-                    response = await client.get(url, headers=headers, params=params)
-                    if response.status_code != 200:
-                        error_detail = response.text
-                        logger.error(f"Failed to search Google Drive files: {error_detail}")
+                    resp = await client.get(
+                        f"{settings.GOOGLE_DRIVE_URL}/drive/v3/files",
+                        headers=headers,
+                        params=params,
+                    )
+
+                    if resp.status_code != 200:
+                        logger.error("Google Drive search failed: %s", resp.text)
                         break
 
-                    result: dict[str, Any] = response.json()
-                    files = result.get("files", [])
-                    all_results.extend(files)
+                    data = resp.json()
 
-                    page_token = result.get("nextPageToken")
+                    for item in data.get("files", []):
+                        results.append(
+                            {
+                                "id": item.get("id"),
+                                "name": item.get("name"),
+                                "mime_type": item.get("mimeType"),
+                                "size": item.get("size"),
+                                "created_time": item.get("createdTime"),
+                                "modified_time": item.get("modifiedTime"),
+                                "web_url": item.get("webViewLink"),
+                                "download_url": item.get("webContentLink"),
+                                "provider": "google_drive",
+                                "type": (
+                                    "folder"
+                                    if item.get("mimeType")
+                                    == "application/vnd.google-apps.folder"
+                                    else "file"
+                                ),
+                            }
+                        )
+
+                    page_token = data.get("nextPageToken")
                     if not page_token:
                         break
-                except Exception as e:
-                    logger.error(f"Error searching Google Drive: {e}")
+
+                except Exception:
+                    logger.exception("Error searching Google Drive")
                     break
 
-        return all_results
+        return results

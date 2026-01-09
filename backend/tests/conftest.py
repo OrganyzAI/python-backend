@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.db import get_engine
 from app.enums.user_enum import UserRole
 from app.main import app
+from app.models.external_account import ExternalAccount
 from app.models.otp import OTP
 from app.models.user import User
 
@@ -87,11 +88,30 @@ def db() -> Generator[Session, None, None]:
     with Session(get_engine()) as session:
         yield session
         # Clean up created rows after the test session
-        statement = delete(OTP)
-        session.execute(statement)
-        statement = delete(User)
-        session.execute(statement)
-        session.commit()
+        # Delete in order to respect foreign key constraints
+        try:
+            # Delete OTP first (no foreign key dependencies)
+            statement = delete(OTP)
+            session.execute(statement)
+            session.commit()
+        except Exception:
+            session.rollback()
+        
+        try:
+            # Delete ExternalAccount before User (due to foreign key constraint)
+            statement = delete(ExternalAccount)
+            session.execute(statement)
+            session.commit()
+        except Exception:
+            session.rollback()
+        
+        try:
+            # Finally delete User
+            statement = delete(User)
+            session.execute(statement)
+            session.commit()
+        except Exception:
+            session.rollback()
 
 
 @pytest.fixture(scope="module")

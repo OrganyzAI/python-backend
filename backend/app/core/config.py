@@ -164,12 +164,15 @@ class Settings(BaseSettings):
     GOOGLE_DRIVE_RESPONSE_TYPE: str | None = None
     GOOGLE_DRIVE_PROMPT: str | None = None
     GOOGLE_DRIVE_ACCESS_TYPE: str | None = None
+    GOOGLE_DRIVE_URL: str | None = None
 
     # Microsoft OAuth2 settings for OneDrive integration
     MICROSOFT_CLIENT_ID: str | None = None
     MICROSOFT_CLIENT_SECRET: str | None = None
     MICROSOFT_REDIRECT_URI: str | None = None
     MICROSOFT_TENANT_ID: str | None = None
+    MICROSOFT_URL: str | None = None
+    MICROSOFT_GRAPH_URL: str | None = None
 
     # Dropbox OAuth2 settings for Dropbox integration
     DROPBOX_CLIENT_SECRET: str | None = None
@@ -179,6 +182,7 @@ class Settings(BaseSettings):
     DROPBOX_SCOPE: str | None = None
     DROPBOX_RESPONSE_TYPE: str | None = None
     DROPBOX_AUTHORIZATION_URL: str | None = None
+    DROPBOX_URL: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
