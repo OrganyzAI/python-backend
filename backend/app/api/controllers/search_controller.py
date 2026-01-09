@@ -18,7 +18,7 @@ class SearchController:
 
     def _serialize_datetime(self, obj: Any) -> Any:
         """Recursively serialize datetime objects to ISO format strings"""
-        if isinstance(obj, (str, int, float, bool, type(None))):
+        if isinstance(obj, str | int | float | bool) or obj is None:
             return obj
         elif hasattr(obj, "isoformat"):  # datetime objects
             return obj.isoformat()

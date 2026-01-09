@@ -24,7 +24,7 @@ def service():
 def test_user(db: Session) -> User:
     """Create a test user."""
     user = User(
-        email="test@example.com",
+        email=f"test_onedrive_service_{uuid.uuid4()}@example.com",
         hashed_password="hashed",
         first_name="Test",
         last_name="User",
