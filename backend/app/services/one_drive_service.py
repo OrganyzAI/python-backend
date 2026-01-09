@@ -369,3 +369,101 @@ class OneDriveService:
                 "file_name": file_name,
                 "file_id": result.get("id"),
             }
+
+    async def search_files(
+        self,
+        user_id: uuid.UUID,
+        query: str,
+        search_in_content: bool = True,
+        session: Session | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Search files in OneDrive using native Microsoft Graph search API.
+        This searches both filename and content efficiently using Microsoft's indexed search.
+        """
+        account = await self.get_one_drive_account(user_id, session=session)
+        if not account:
+            raise ValueError("OneDrive account not connected")
+
+        access_token = await self._ensure_valid_token(account, session=session)
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        all_results: list[dict[str, Any]] = []
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Search in personal OneDrive
+            # Microsoft Graph search API searches both filename and content
+            # URL encode the query parameter
+            encoded_query = quote(query, safe="")
+            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root/search(q='{encoded_query}')"
+            
+            try:
+                response = await client.get(search_url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    items = data.get("value", [])
+                    for item in items:
+                        item["tenant"] = {"driveType": "personal", "name": "Personal OneDrive"}
+                        all_results.append(item)
+
+                    # Handle pagination
+                    next_link = data.get("@odata.nextLink")
+                    while next_link:
+                        response = await client.get(next_link, headers=headers)
+                        if response.status_code == 200:
+                            data = response.json()
+                            items = data.get("value", [])
+                            for item in items:
+                                item["tenant"] = {"driveType": "personal", "name": "Personal OneDrive"}
+                                all_results.append(item)
+                            next_link = data.get("@odata.nextLink")
+                        else:
+                            break
+            except Exception as e:
+                logger.error(f"Error searching personal OneDrive: {e}")
+
+            # Also search in SharePoint sites/tenants
+            try:
+                tenants = await self.get_all_tenants(user_id, session=session)
+                for tenant in tenants:
+                    site_id = tenant.get("id")
+                    drive_type = tenant.get("driveType", "sharepoint")
+                    
+                    if drive_type == "personal":
+                        continue  # Already searched above
+                    
+                    if not site_id:
+                        continue
+
+                    try:
+                        # Search in SharePoint site drive
+                        # URL encode the query parameter
+                        encoded_query = quote(query, safe="")
+                        site_search_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root/search(q='{encoded_query}')"
+                        response = await client.get(site_search_url, headers=headers)
+                        if response.status_code == 200:
+                            data = response.json()
+                            items = data.get("value", [])
+                            for item in items:
+                                item["tenant"] = tenant
+                                all_results.append(item)
+
+                            # Handle pagination
+                            next_link = data.get("@odata.nextLink")
+                            while next_link:
+                                response = await client.get(next_link, headers=headers)
+                                if response.status_code == 200:
+                                    data = response.json()
+                                    items = data.get("value", [])
+                                    for item in items:
+                                        item["tenant"] = tenant
+                                        all_results.append(item)
+                                    next_link = data.get("@odata.nextLink")
+                                else:
+                                    break
+                    except Exception as e:
+                        logger.debug(f"Error searching tenant {site_id}: {e}")
+            except Exception as e:
+                logger.debug(f"Error getting tenants for search: {e}")
+
+        return all_results

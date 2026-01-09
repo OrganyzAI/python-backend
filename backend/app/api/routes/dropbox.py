@@ -34,6 +34,14 @@ async def connect_dropbox_with_tokens(
     )
 
 
+@router.get("/files")
+async def get_all_files(
+    user_id: uuid.UUID = Depends(get_current_user_id),
+) -> JSONResponse:
+    """Get all files as a flat list without namespace organization"""
+    return await controller.get_all_files(user_id=user_id)
+
+
 @router.get("/files/all")
 async def get_all_files_with_namespaces(
     user_id: uuid.UUID = Depends(get_current_user_id),

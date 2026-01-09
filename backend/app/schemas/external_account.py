@@ -28,9 +28,8 @@ class OneDriveTokenResponse(BaseModel):
 
 class DropboxTokenResponse(BaseModel):
     access_token: str = Field(..., description="Dropbox OAuth access token")
-    expires_in: int | None = Field(
-        None, description="Access token expiration time in seconds"
+    expires_in: str | None = Field(
+        None, description="Access token expiration time in ISO 8601 format"
     )
-    token_type: str | None = Field(default="Bearer", description="Token type")
     refresh_token: str | None = Field(None, description="Dropbox OAuth refresh token")
     scope: str | None = Field(None, description="OAuth scopes granted")

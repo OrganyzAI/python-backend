@@ -514,3 +514,67 @@ class IntegrationService:
 
         else:
             raise ValueError("No update parameters provided")
+
+    async def search_google_drive_files(
+        self,
+        user_id: uuid.UUID,
+        query: str,
+        search_in_content: bool = True,
+        session: Session | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Search files in Google Drive using native search API.
+        This searches both filename and content efficiently using Google's indexed search.
+        """
+        account = await self.get_google_drive_account(user_id, session=session)
+        if not account:
+            raise ValueError("Google Drive account not connected")
+
+        access_token = await self._ensure_valid_token(account, session=session)
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        all_results: list[dict[str, Any]] = []
+
+        # Google Drive search query: search in both name and fullText (content)
+        # The fullText contains operator searches within file contents for supported file types
+        # Escape single quotes in the query by replacing them with escaped version
+        escaped_query = query.replace("'", "\\'")
+        if search_in_content:
+            search_query = f"name contains '{escaped_query}' or fullText contains '{escaped_query}'"
+        else:
+            search_query = f"name contains '{escaped_query}'"
+
+        url = "https://www.googleapis.com/drive/v3/files"
+        params: dict[str, Any] = {
+            "q": search_query,
+            "pageSize": 100,
+            "fields": "nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink)",
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            page_token = None
+            while True:
+                if page_token:
+                    params["pageToken"] = page_token
+                else:
+                    params.pop("pageToken", None)
+
+                try:
+                    response = await client.get(url, headers=headers, params=params)
+                    if response.status_code != 200:
+                        error_detail = response.text
+                        logger.error(f"Failed to search Google Drive files: {error_detail}")
+                        break
+
+                    result: dict[str, Any] = response.json()
+                    files = result.get("files", [])
+                    all_results.extend(files)
+
+                    page_token = result.get("nextPageToken")
+                    if not page_token:
+                        break
+                except Exception as e:
+                    logger.error(f"Error searching Google Drive: {e}")
+                    break
+
+        return all_results

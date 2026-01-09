@@ -8,6 +8,7 @@ import dropbox
 import httpx
 from dropbox import Dropbox
 from dropbox.exceptions import ApiError, AuthError
+from dropbox.files import FileMetadata
 from sqlmodel import Session, select
 
 from app.core.config import settings
@@ -23,8 +24,7 @@ class DropboxService:
         self,
         access_token: str,
         refresh_token: str | None = None,
-        expires_in: int | None = None,
-        token_type: str | None = None,
+        expires_in: str | None = None,
         scope: str | None = None,
         user_id: uuid.UUID | None = None,
         session: Session | None = None,
@@ -34,7 +34,7 @@ class DropboxService:
 
         expires_at = None
         if expires_in:
-            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            expires_at = datetime.fromisoformat(expires_in)
 
         user_info = await self._get_dropbox_user_info(access_token)
         provider_account_id = user_info.get("account_id")
@@ -43,8 +43,8 @@ class DropboxService:
         final_scope = scope or settings.DROPBOX_SCOPE
 
         token_info = {
-            "token_type": token_type,
-            "expires_in": expires_in,
+            "token_type": "Bearer",
+            "expires_at": expires_at.isoformat() if expires_at else None,
             "refresh_token": refresh_token,
             "scope": final_scope,
         }
@@ -260,7 +260,10 @@ class DropboxService:
 
             try:
                 files = await self.get_files_for_namespace(
-                    user_id, namespace_id, session=session
+                    user_id,
+                    namespace_id,
+                    namespace_type=namespace.get("namespace_type"),
+                    session=session,
                 )
                 namespace_data = {
                     "namespace": namespace,
@@ -280,6 +283,41 @@ class DropboxService:
                 result["namespaces"].append(namespace_data)
 
         return result
+
+    async def get_all_files(
+        self,
+        user_id: uuid.UUID,
+        session: Session | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get all files as a flat list without namespace organization"""
+        namespaces = await self.get_all_namespaces(user_id, session=session)
+        all_files: list[dict[str, Any]] = []
+
+        for namespace in namespaces:
+            namespace_id = namespace.get("namespace_id")
+            if not namespace_id:
+                continue
+
+            try:
+                files = await self.get_files_for_namespace(
+                    user_id,
+                    namespace_id,
+                    namespace_type=namespace.get("namespace_type"),
+                    session=session,
+                )
+                # Add namespace info to each file
+                for file in files:
+                    file_with_namespace = file.copy()
+                    file_with_namespace["namespace"] = {
+                        "namespace_id": namespace.get("namespace_id"),
+                        "name": namespace.get("name"),
+                        "namespace_type": namespace.get("namespace_type"),
+                    }
+                    all_files.append(file_with_namespace)
+            except Exception as e:
+                logger.error(f"Failed to get files for namespace {namespace_id}: {e}")
+
+        return all_files
 
     async def get_all_namespaces(
         self,
@@ -351,90 +389,93 @@ class DropboxService:
         self,
         user_id: uuid.UUID,
         namespace_id: str,
+        namespace_type: str | None = None,
         session: Session | None = None,
     ) -> list[dict[str, Any]]:
-        """Get all files for a specific namespace (recursively)"""
         account = await self.get_dropbox_account(user_id, session=session)
         if not account:
             raise ValueError("Dropbox account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
 
-        all_files = []
-        dbx = Dropbox(access_token)
-
-        def convert_metadata_to_dict(metadata: Any) -> dict[str, Any]:
-            """Convert Dropbox metadata object to dictionary"""
-            if hasattr(metadata, "__dict__"):
-                result = {}
-                for key, value in metadata.__dict__.items():
-                    if key.startswith("_"):
-                        continue
-                    if hasattr(value, "__dict__"):
-                        result[key] = convert_metadata_to_dict(value)
-                    elif hasattr(value, "get_tag"):
-                        result[key] = value.get_tag()
-                    else:
-                        result[key] = value
-                return result
-            return {}
-
-        async def get_files_recursive(path: str = "") -> None:
-            """Recursively get all files from a folder"""
+        # If namespace_type is not provided, determine it by checking if it's the personal account
+        if namespace_type is None:
             try:
-                # List folder using SDK
-                result = await asyncio.to_thread(dbx.files_list_folder, path or "")
-
-                # Process entries
-                for entry in result.entries:
-                    entry_dict = convert_metadata_to_dict(entry)
-                    # Add .tag for compatibility
-                    if hasattr(entry, "get_tag"):
-                        entry_dict[".tag"] = entry.get_tag()
-                    elif isinstance(entry, dropbox.files.FolderMetadata):
-                        entry_dict[".tag"] = "folder"
-                    elif isinstance(entry, dropbox.files.FileMetadata):
-                        entry_dict[".tag"] = "file"
-
-                    all_files.append(entry_dict)
-
-                    # If it's a folder, recursively get its contents
-                    if isinstance(entry, dropbox.files.FolderMetadata):
-                        entry_path = entry.path_lower or entry.path_display
-                        if entry_path:
-                            await get_files_recursive(path=entry_path)
-
-                # Handle pagination
-                while result.has_more:
-                    cursor = result.cursor
-                    result = await asyncio.to_thread(
-                        dbx.files_list_folder_continue, cursor
-                    )
-
-                    for entry in result.entries:
-                        entry_dict = convert_metadata_to_dict(entry)
-                        if hasattr(entry, "get_tag"):
-                            entry_dict[".tag"] = entry.get_tag()
-                        elif isinstance(entry, dropbox.files.FolderMetadata):
-                            entry_dict[".tag"] = "folder"
-                        elif isinstance(entry, dropbox.files.FileMetadata):
-                            entry_dict[".tag"] = "file"
-
-                        all_files.append(entry_dict)
-
-                        if isinstance(entry, dropbox.files.FolderMetadata):
-                            entry_path = entry.path_lower or entry.path_display
-                            if entry_path:
-                                await get_files_recursive(path=entry_path)
-            except ApiError as e:
-                logger.error(f"Failed to get files from {path}: {e}")
+                dbx_temp = Dropbox(access_token)
+                account_obj = await asyncio.to_thread(
+                    dbx_temp.users_get_current_account
+                )
+                if namespace_id == account_obj.account_id:
+                    namespace_type = "personal"
+                else:
+                    namespace_type = "team"
             except Exception as e:
-                logger.error(f"Error fetching files from {path}: {e}")
+                logger.debug(
+                    f"Could not determine namespace type, defaulting to team: {e}"
+                )
+                namespace_type = "team"
 
-        # Start recursive file fetching from root
-        await get_files_recursive()
+        # For personal namespace, use regular Dropbox client (no namespace header)
+        # For team namespaces, use namespace header
+        if namespace_type == "personal":
+            dbx = Dropbox(access_token)
+        else:
+            dbx = self._get_dbx_with_namespace(access_token, namespace_id)
 
-        return all_files
+        all_files: list[dict[str, Any]] = []
+
+        try:
+            result = await asyncio.to_thread(
+                dbx.files_list_folder,
+                path="",
+                recursive=True,
+                include_media_info=True,
+                include_deleted=False,
+            )
+
+            def process_entries(entries):
+                for entry in entries:
+                    # Check if entry is a file or folder using isinstance
+                    is_file = isinstance(entry, FileMetadata)
+
+                    data = {
+                        "id": entry.id,
+                        "name": entry.name,
+                        "path_lower": entry.path_lower,
+                        "path_display": entry.path_display,
+                        ".tag": "file" if is_file else "folder",
+                    }
+
+                    if is_file:
+                        data.update(
+                            {
+                                "size": entry.size,
+                                "rev": entry.rev,
+                                "content_hash": entry.content_hash,
+                                "client_modified": entry.client_modified.isoformat()
+                                if entry.client_modified
+                                else None,
+                                "server_modified": entry.server_modified.isoformat()
+                                if entry.server_modified
+                                else None,
+                            }
+                        )
+
+                    all_files.append(data)
+
+            process_entries(result.entries)
+
+            while result.has_more:
+                result = await asyncio.to_thread(
+                    dbx.files_list_folder_continue, result.cursor
+                )
+                process_entries(result.entries)
+
+            return all_files
+
+        except ApiError as e:
+            logger.error(f"Dropbox list error: {e}")
+            return []
 
     async def get_dropbox_account(
         self,
@@ -515,3 +556,251 @@ class DropboxService:
         except Exception as e:
             logger.error(f"Unexpected error uploading file to Dropbox: {e}")
             raise ValueError(f"Failed to upload file: {str(e)}")
+
+    def _get_dbx_with_namespace(self, access_token: str, namespace_id: str) -> Dropbox:
+        return Dropbox(
+            access_token,
+            headers={"Dropbox-API-Path-Root": f'{{"namespace_id": "{namespace_id}"}}'},
+        )
+
+    async def _list_files_in_namespace(self, dbx: Dropbox) -> list[dict[str, Any]]:
+        """Helper method to list all files in a namespace using a Dropbox client"""
+        all_files: list[dict[str, Any]] = []
+
+        try:
+            result = await asyncio.to_thread(
+                dbx.files_list_folder,
+                path="",
+                recursive=True,
+                include_media_info=True,
+                include_deleted=False,
+            )
+
+            def process_entries(entries):
+                for entry in entries:
+                    # Check if entry is a file or folder using isinstance
+                    is_file = isinstance(entry, FileMetadata)
+
+                    data = {
+                        "id": entry.id,
+                        "name": entry.name,
+                        "path_lower": entry.path_lower,
+                        "path_display": entry.path_display,
+                        ".tag": "file" if is_file else "folder",
+                    }
+
+                    if is_file:
+                        data.update(
+                            {
+                                "size": entry.size,
+                                "rev": entry.rev,
+                                "content_hash": entry.content_hash,
+                                "client_modified": entry.client_modified.isoformat()
+                                if entry.client_modified
+                                else None,
+                                "server_modified": entry.server_modified.isoformat()
+                                if entry.server_modified
+                                else None,
+                            }
+                        )
+
+                    all_files.append(data)
+
+            process_entries(result.entries)
+
+            while result.has_more:
+                result = await asyncio.to_thread(
+                    dbx.files_list_folder_continue, result.cursor
+                )
+                process_entries(result.entries)
+
+            return all_files
+
+        except ApiError as e:
+            logger.error(f"Dropbox list error: {e}")
+            return []
+
+    async def get_all_files_combined(self, user_id: uuid.UUID) -> list[dict[str, Any]]:
+        """
+        Get all files: personal + any team/shared namespaces
+        """
+        account = await self.get_dropbox_account(user_id)
+        if not account:
+            raise ValueError("Dropbox account not connected")
+
+        access_token = await self._ensure_valid_token(account)
+        dbx = Dropbox(access_token)
+        all_files: list[dict[str, Any]] = []
+
+        # 1️⃣ Personal files
+        personal_files = await self._list_files_in_namespace(dbx)
+        for f in personal_files:
+            f["namespace_type"] = "personal"
+        all_files.extend(personal_files)
+
+        # 2️⃣ Team/other namespaces (requires team scope)
+        try:
+            team_namespaces = await asyncio.to_thread(dbx.team_namespaces_list)
+            for ns in team_namespaces.namespaces:
+                dbx_ns = Dropbox(
+                    access_token,
+                    headers={
+                        "Dropbox-API-Path-Root": f'{{"namespace_id": "{ns.namespace_id}"}}'
+                    },
+                )
+                namespace_files = await self._list_files_in_namespace(dbx_ns)
+                for f in namespace_files:
+                    f["namespace_type"] = "team"
+                    f["namespace_id"] = ns.namespace_id
+                    f["namespace_name"] = ns.name
+                all_files.extend(namespace_files)
+        except Exception as e:
+            logger.debug(f"No team/shared namespaces or unable to access: {e}")
+
+        return all_files
+
+    async def search_files(
+        self,
+        user_id: uuid.UUID,
+        query: str,
+        search_in_content: bool = True,
+        session: Session | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Search files in Dropbox using native search API (files/search_v2).
+        This searches both filename and content efficiently using Dropbox's indexed search.
+        """
+        account = await self.get_dropbox_account(user_id, session=session)
+        if not account:
+            raise ValueError("Dropbox account not connected")
+
+        access_token = await self._ensure_valid_token(account, session=session)
+        dbx = Dropbox(access_token)
+
+        all_results: list[dict[str, Any]] = []
+
+        try:
+            # Use Dropbox search_v2 API which searches both filename and content
+            from dropbox.files import SearchV2Arg
+
+            # Search in personal namespace
+            search_arg = SearchV2Arg(query=query)
+            result = await asyncio.to_thread(dbx.files_search_v2, search_arg)
+
+            def process_matches(matches):
+                for match in matches:
+                    if hasattr(match, "metadata") and hasattr(match.metadata, "metadata"):
+                        entry = match.metadata.metadata
+                        is_file = isinstance(entry, FileMetadata)
+
+                        data = {
+                            "id": entry.id,
+                            "name": entry.name,
+                            "path_lower": entry.path_lower,
+                            "path_display": entry.path_display,
+                            ".tag": "file" if is_file else "folder",
+                            "namespace_type": "personal",
+                        }
+
+                        if is_file:
+                            data.update(
+                                {
+                                    "size": entry.size,
+                                    "rev": entry.rev,
+                                    "content_hash": entry.content_hash,
+                                    "client_modified": entry.client_modified.isoformat()
+                                    if entry.client_modified
+                                    else None,
+                                    "server_modified": entry.server_modified.isoformat()
+                                    if entry.server_modified
+                                    else None,
+                                }
+                            )
+
+                        all_results.append(data)
+
+            if hasattr(result, "matches"):
+                process_matches(result.matches)
+
+            # Handle pagination
+            while hasattr(result, "has_more") and result.has_more:
+                if hasattr(result, "cursor"):
+                    search_arg = SearchV2Arg(query=query, cursor=result.cursor)
+                    result = await asyncio.to_thread(dbx.files_search_v2, search_arg)
+                    if hasattr(result, "matches"):
+                        process_matches(result.matches)
+                else:
+                    break
+
+            # Also search in team namespaces if available
+            try:
+                team_namespaces = await asyncio.to_thread(dbx.team_namespaces_list)
+                for ns in team_namespaces.namespaces:
+                    dbx_ns = self._get_dbx_with_namespace(access_token, ns.namespace_id)
+                    search_arg = SearchV2Arg(query=query)
+                    ns_result = await asyncio.to_thread(
+                        dbx_ns.files_search_v2, search_arg
+                    )
+
+                    def process_ns_matches(matches):
+                        for match in matches:
+                            if hasattr(match, "metadata") and hasattr(
+                                match.metadata, "metadata"
+                            ):
+                                entry = match.metadata.metadata
+                                is_file = isinstance(entry, FileMetadata)
+
+                                data = {
+                                    "id": entry.id,
+                                    "name": entry.name,
+                                    "path_lower": entry.path_lower,
+                                    "path_display": entry.path_display,
+                                    ".tag": "file" if is_file else "folder",
+                                    "namespace_type": "team",
+                                    "namespace_id": ns.namespace_id,
+                                    "namespace_name": ns.name,
+                                }
+
+                                if is_file:
+                                    data.update(
+                                        {
+                                            "size": entry.size,
+                                            "rev": entry.rev,
+                                            "content_hash": entry.content_hash,
+                                            "client_modified": entry.client_modified.isoformat()
+                                            if entry.client_modified
+                                            else None,
+                                            "server_modified": entry.server_modified.isoformat()
+                                            if entry.server_modified
+                                            else None,
+                                        }
+                                    )
+
+                                all_results.append(data)
+
+                    if hasattr(ns_result, "matches"):
+                        process_ns_matches(ns_result.matches)
+
+                    # Handle pagination for namespace search
+                    while hasattr(ns_result, "has_more") and ns_result.has_more:
+                        if hasattr(ns_result, "cursor"):
+                            search_arg = SearchV2Arg(
+                                query=query, cursor=ns_result.cursor
+                            )
+                            ns_result = await asyncio.to_thread(
+                                dbx_ns.files_search_v2, search_arg
+                            )
+                            if hasattr(ns_result, "matches"):
+                                process_ns_matches(ns_result.matches)
+                        else:
+                            break
+            except (ApiError, AttributeError) as e:
+                logger.debug(f"Team namespaces search not available: {e}")
+
+        except ApiError as e:
+            logger.error(f"Dropbox search error: {e}")
+            # Fallback: if search_v2 is not available, return empty results
+            # The search_v2 API requires Dropbox Business/Professional accounts
+            return []
+
+        return all_results

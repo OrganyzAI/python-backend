@@ -59,7 +59,7 @@ jobs:
         if: failure()
         run: docker compose logs --no-color db || true
       - name: Store coverage files
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-html
           path: backend/htmlcov
