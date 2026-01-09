@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
 from fastapi.datastructures import UploadFile
@@ -17,6 +18,16 @@ class DropboxController:
         self.service = DropboxService()
         self.response_class: type[ResponseSchema[Any]] = ResponseSchema
         self.error_class = AppException
+
+    def _serialize_datetime(self, obj: Any) -> Any:
+        """Recursively serialize datetime objects to ISO format strings"""
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, dict):
+            return {k: self._serialize_datetime(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._serialize_datetime(item) for item in obj]
+        return obj
 
     def _success(
         self,
@@ -40,6 +51,8 @@ class DropboxController:
         elif isinstance(data, SQLModel):
             # Convert SQLModel to dict with proper UUID serialization
             data_payload = data.model_dump(mode="json")
+            # Recursively serialize any remaining datetime objects (e.g., in extra_data)
+            data_payload = self._serialize_datetime(data_payload)
 
         payload = self.response_class(
             success=True,
@@ -94,7 +107,6 @@ class DropboxController:
                 access_token=token_response.access_token,
                 expires_in=token_response.expires_in,
                 refresh_token=token_response.refresh_token,
-                token_type=token_response.token_type,
                 scope=token_response.scope,
                 user_id=user_id,
             )
@@ -129,6 +141,20 @@ class DropboxController:
             return self._success(
                 data=result,
                 message="Successfully retrieved all files with namespaces",
+            )
+        except Exception as e:
+            return self._error(message=e)
+
+    async def get_all_files(
+        self,
+        user_id: uuid.UUID,
+    ) -> JSONResponse:
+        """Get all files as a flat list without namespace organization"""
+        try:
+            files = await self.service.get_all_files_combined(user_id=user_id)
+            return self._success(
+                data={"files": files, "total_files": len(files)},
+                message="Successfully retrieved all files",
             )
         except Exception as e:
             return self._error(message=e)
@@ -182,4 +208,3 @@ class DropboxController:
             )
         except Exception as e:
             return self._error(message=e)
-
