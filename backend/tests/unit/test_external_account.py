@@ -14,7 +14,7 @@ def test_external_account_model_creation(db: Session):
     """Test ExternalAccount model creation to ensure TYPE_CHECKING import is exercised."""
     # Create a user first
     user = User(
-        email="test@example.com",
+        email=f"test_external_account_{uuid.uuid4()}@example.com",
         hashed_password="hashed",
         first_name="Test",
         last_name="User",

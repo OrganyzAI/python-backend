@@ -742,6 +742,10 @@ class DropboxService:
                         dbx_ns.files_search_v2, search_arg
                     )
 
+                    # Capture loop variables to avoid B023 error
+                    namespace_id = ns.namespace_id
+                    namespace_name = ns.name
+
                     def process_ns_matches(matches):
                         for match in matches:
                             if hasattr(match, "metadata") and hasattr(
@@ -757,8 +761,8 @@ class DropboxService:
                                     "path_display": entry.path_display,
                                     ".tag": "file" if is_file else "folder",
                                     "namespace_type": "team",
-                                    "namespace_id": ns.namespace_id,
-                                    "namespace_name": ns.name,
+                                    "namespace_id": namespace_id,
+                                    "namespace_name": namespace_name,
                                 }
 
                                 if is_file:
