@@ -7,6 +7,7 @@ from urllib.parse import quote
 import httpx
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.core.db import get_engine
 from app.enums.external_account_enum import EXTERNAL_ACCOUNT_PROVIDER
 from app.models.external_account import ExternalAccount
@@ -25,7 +26,6 @@ class OneDriveService:
         user_id: uuid.UUID | None = None,
         session: Session | None = None,
     ) -> ExternalAccount:
-        """Connect One Drive account using provided tokens directly"""
         if not access_token:
             raise ValueError("Access token is required")
 
@@ -47,11 +47,9 @@ class OneDriveService:
         else:
             user_info = token_info
 
-        # User ID is required
         if not user_id:
             raise ValueError("User ID is required")
 
-        # Check if account already exists
         own_session = None
         if session is None:
             own_session = Session(get_engine())
@@ -65,7 +63,6 @@ class OneDriveService:
             existing_account = session.exec(stmt).first()
 
             if existing_account:
-                # Update existing account
                 existing_account.access_token = access_token
                 existing_account.expires_at = expires_at
                 existing_account.provider_account_id = provider_account_id
@@ -76,7 +73,6 @@ class OneDriveService:
                 session.refresh(existing_account)
                 return existing_account
 
-            # Create new account
             account = ExternalAccount(
                 user_id=user_id,
                 provider=EXTERNAL_ACCOUNT_PROVIDER.ONE_DRIVE,
@@ -94,10 +90,9 @@ class OneDriveService:
                 own_session.close()
 
     async def _get_one_drive_user_info(self, access_token: str) -> dict[str, Any]:
-        """Get user information from Microsoft Graph API using access token"""
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
-                "https://graph.microsoft.com/v1.0/me",
+                f"{settings.MICROSOFT_URL}/v1.0/me",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             if response.status_code != 200:
@@ -109,12 +104,10 @@ class OneDriveService:
     async def _ensure_valid_token(
         self, account: ExternalAccount, session: Session | None = None
     ) -> str:
-        """Ensure the access token is valid, refresh if necessary"""
         if account.expires_at and account.expires_at > datetime.utcnow():
             return account.access_token or ""
         if not account.refresh_token:
             raise ValueError("No refresh token available")
-        # TODO: Implement token refresh logic for Microsoft
         if not account.access_token:
             raise ValueError("No access token available")
         return account.access_token
@@ -124,7 +117,6 @@ class OneDriveService:
         user_id: uuid.UUID,
         session: Session | None = None,
     ) -> list[dict[str, Any]]:
-        """Get all sites/tenants from Microsoft Graph API including personal OneDrive"""
         account = await self.get_one_drive_account(user_id, session=session)
         if not account:
             raise ValueError("OneDrive account not connected")
@@ -135,10 +127,9 @@ class OneDriveService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Get user's personal OneDrive
             try:
                 response = await client.get(
-                    "https://graph.microsoft.com/v1.0/me/drive",
+                    f"{settings.MICROSOFT_GRAPH_URL}/v1.0/me/drive",
                     headers=headers,
                 )
                 if response.status_code == 200:
@@ -155,8 +146,7 @@ class OneDriveService:
             except Exception as e:
                 logger.error(f"Failed to get personal OneDrive: {e}")
 
-            # Get all SharePoint sites
-            url = "https://graph.microsoft.com/v1.0/sites?search=*"
+            url = f"{settings.MICROSOFT_GRAPH_URL}/v1.0/sites?search=*"
             while url:
                 try:
                     response = await client.get(url, headers=headers)
@@ -168,10 +158,9 @@ class OneDriveService:
                     for site in data.get("value", []):
                         site_id = site.get("id")
                         if site_id:
-                            # Get drive for each site
                             try:
                                 drive_response = await client.get(
-                                    f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive",
+                                    f"{settings.MICROSOFT_GRAPH_URL}/v1.0/sites/{site_id}/drive",
                                     headers=headers,
                                 )
                                 if drive_response.status_code == 200:
@@ -185,7 +174,6 @@ class OneDriveService:
 
                     tenants.extend(data.get("value", []))
 
-                    # Check for next page
                     url = data.get("@odata.nextLink")
                 except Exception as e:
                     logger.error(f"Error fetching sites: {e}")
@@ -199,7 +187,6 @@ class OneDriveService:
         site_id: str,
         session: Session | None = None,
     ) -> list[dict[str, Any]]:
-        """Get all files for a specific tenant/site (recursively)"""
         account = await self.get_one_drive_account(user_id, session=session)
         if not account:
             raise ValueError("OneDrive account not connected")
@@ -209,16 +196,12 @@ class OneDriveService:
         all_files = []
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        # Determine base URL based on site_id
         if site_id == "personal" or site_id.startswith("drive-"):
-            # Personal OneDrive
-            base_url = "https://graph.microsoft.com/v1.0/me/drive"
+            base_url = f"{settings.MICROSOFT_GRAPH_URL}/v1.0/me/drive"
         else:
-            # SharePoint site
-            base_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive"
+            base_url = f"{settings.MICROSOFT_GRAPH_URL}/v1.0/sites/{site_id}/drive"
 
         async def get_files_recursive(folder_id: str = "root") -> None:
-            """Recursively get all files from a folder"""
             url = (
                 f"{base_url}/items/{folder_id}/children"
                 if folder_id != "root"
@@ -241,22 +224,18 @@ class OneDriveService:
                         items = data.get("value", [])
 
                         for item in items:
-                            # Add file to results
                             all_files.append(item)
 
-                            # If it's a folder, recursively get its contents
                             if item.get("folder"):
                                 item_id = item.get("id")
                                 if item_id:
                                     await get_files_recursive(folder_id=item_id)
 
-                        # Check for next page
                         current_url = data.get("@odata.nextLink")
                     except Exception as e:
                         logger.error(f"Error fetching files from {current_url}: {e}")
                         break
 
-        # Start recursive file fetching
         await get_files_recursive()
 
         return all_files
@@ -266,7 +245,6 @@ class OneDriveService:
         user_id: uuid.UUID,
         session: Session | None = None,
     ) -> dict[str, Any]:
-        """Get all files organized by tenant"""
         tenants = await self.get_all_tenants(user_id, session=session)
         result: dict[str, Any] = {
             "tenants": [],
@@ -280,7 +258,6 @@ class OneDriveService:
                 continue
 
             try:
-                # Use drive ID for personal OneDrive, site ID for SharePoint
                 if drive_type == "personal":
                     drive_id = tenant.get("drive", {}).get("id")
                     tenant_id = drive_id or "personal"
@@ -314,7 +291,6 @@ class OneDriveService:
         user_id: uuid.UUID,
         session: Session | None = None,
     ) -> ExternalAccount | None:
-        """Get OneDrive account for user"""
         own_session = None
         if session is None:
             own_session = Session(get_engine())
@@ -337,17 +313,14 @@ class OneDriveService:
         file_name: str,
         file_content: bytes,
     ) -> dict[str, Any]:
-        """Upload a file to One Drive"""
         account = await self.get_one_drive_account(user_id)
         if not account:
             raise ValueError("OneDrive account not connected")
 
         access_token = await self._ensure_valid_token(account)
 
-        # Microsoft Graph API requires the filename to be URL-encoded in the path
-        # Format: /me/drive/root:/{filename}:/content
         encoded_filename = quote(file_name)
-        url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{encoded_filename}:/content"
+        url = f"{settings.MICROSOFT_GRAPH_URL}/v1.0/me/drive/root:/{encoded_filename}:/content"
 
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -377,93 +350,73 @@ class OneDriveService:
         search_in_content: bool = True,
         session: Session | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Search files in OneDrive using native Microsoft Graph search API.
-        This searches both filename and content efficiently using Microsoft's indexed search.
-        """
         account = await self.get_one_drive_account(user_id, session=session)
         if not account:
             raise ValueError("OneDrive account not connected")
 
         access_token = await self._ensure_valid_token(account, session=session)
-        headers = {"Authorization": f"Bearer {access_token}"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
 
-        all_results: list[dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # Search in personal OneDrive
-            # Microsoft Graph search API searches both filename and content
-            # URL encode the query parameter
-            encoded_query = quote(query, safe="")
-            search_url = f"https://graph.microsoft.com/v1.0/me/drive/root/search(q='{encoded_query}')"
-            
-            try:
-                response = await client.get(search_url, headers=headers)
-                if response.status_code == 200:
-                    data = response.json()
-                    items = data.get("value", [])
-                    for item in items:
-                        item["tenant"] = {"driveType": "personal", "name": "Personal OneDrive"}
-                        all_results.append(item)
 
-                    # Handle pagination
-                    next_link = data.get("@odata.nextLink")
-                    while next_link:
-                        response = await client.get(next_link, headers=headers)
-                        if response.status_code == 200:
-                            data = response.json()
-                            items = data.get("value", [])
-                            for item in items:
-                                item["tenant"] = {"driveType": "personal", "name": "Personal OneDrive"}
-                                all_results.append(item)
-                            next_link = data.get("@odata.nextLink")
-                        else:
-                            break
-            except Exception as e:
-                logger.error(f"Error searching personal OneDrive: {e}")
+            async def fetch_search(url: str, tenant: dict):
+                while url:
+                    resp = await client.get(url, headers=headers)
+                    if resp.status_code != 200:
+                        logger.warning("OneDrive search failed: %s", resp.text)
+                        return
 
-            # Also search in SharePoint sites/tenants
-            try:
-                tenants = await self.get_all_tenants(user_id, session=session)
-                for tenant in tenants:
-                    site_id = tenant.get("id")
-                    drive_type = tenant.get("driveType", "sharepoint")
-                    
-                    if drive_type == "personal":
-                        continue  # Already searched above
-                    
-                    if not site_id:
-                        continue
+                    data = resp.json()
+                    for item in data.get("value", []):
+                        if not search_in_content:
+                            if query.lower() not in item.get("name", "").lower():
+                                continue
 
-                    try:
-                        # Search in SharePoint site drive
-                        # URL encode the query parameter
-                        encoded_query = quote(query, safe="")
-                        site_search_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root/search(q='{encoded_query}')"
-                        response = await client.get(site_search_url, headers=headers)
-                        if response.status_code == 200:
-                            data = response.json()
-                            items = data.get("value", [])
-                            for item in items:
-                                item["tenant"] = tenant
-                                all_results.append(item)
+                        results.append(
+                            {
+                                "id": item.get("id"),
+                                "name": item.get("name"),
+                                "path": item.get("parentReference", {}).get("path"),
+                                "web_url": item.get("webUrl"),
+                                "size": item.get("size"),
+                                "provider": "onedrive",
+                                "type": "file" if "file" in item else "folder",
+                                "last_modified": item.get("lastModifiedDateTime"),
+                                "tenant": tenant,
+                            }
+                        )
 
-                            # Handle pagination
-                            next_link = data.get("@odata.nextLink")
-                            while next_link:
-                                response = await client.get(next_link, headers=headers)
-                                if response.status_code == 200:
-                                    data = response.json()
-                                    items = data.get("value", [])
-                                    for item in items:
-                                        item["tenant"] = tenant
-                                        all_results.append(item)
-                                    next_link = data.get("@odata.nextLink")
-                                else:
-                                    break
-                    except Exception as e:
-                        logger.debug(f"Error searching tenant {site_id}: {e}")
-            except Exception as e:
-                logger.debug(f"Error getting tenants for search: {e}")
+                    url = data.get("@odata.nextLink")
 
-        return all_results
+            personal_url = (
+                f"{settings.MICROSOFT_GRAPH_URL}/v1.0/me/drive/root/search(q='{query}')"
+            )
+
+            await fetch_search(
+                personal_url,
+                {"driveType": "personal", "name": "Personal OneDrive"},
+            )
+
+            tenants = await self.get_all_tenants(user_id, session=session)
+
+            for tenant in tenants:
+                if tenant.get("driveType") == "personal":
+                    continue
+
+                site_id = tenant.get("id")
+                if not site_id:
+                    continue
+
+                site_url = (
+                    f"{settings.MICROSOFT_GRAPH_URL}/v1.0/sites/{site_id}"
+                    f"/drive/root/search(q='{query}')"
+                )
+
+                await fetch_search(site_url, tenant)
+
+        return results

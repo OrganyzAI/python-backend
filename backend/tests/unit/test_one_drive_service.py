@@ -119,6 +119,13 @@ class TestConnectOneDriveWithTokens:
         db.add(existing_account)
         db.commit()
         db.refresh(existing_account)
+        
+        # Store the original updated_at timestamp
+        import time
+        original_updated_at = existing_account.updated_at
+        # Add a delay to ensure there's a clear time difference when we update
+        # The service will set updated_at = datetime.utcnow() on update
+        time.sleep(0.2)  # Increased delay to ensure timestamp difference
 
         mock_user_info = {"id": "new_user_123", "displayName": "Updated User"}
 
@@ -149,7 +156,13 @@ class TestConnectOneDriveWithTokens:
             assert account.id == existing_account.id
             assert account.access_token == "new_token"
             assert account.provider_account_id == "new_user_123"
-            assert account.updated_at > existing_account.updated_at
+            # The service explicitly sets updated_at = datetime.utcnow() on update
+            # Verify the account was updated by checking updated_at
+            # Since we added a delay before the update, updated_at should be greater
+            db.refresh(account)  # Ensure we have the latest from database
+            assert account.updated_at >= original_updated_at
+            # With the delay, it should be strictly greater
+            assert account.updated_at > original_updated_at
 
     @pytest.mark.asyncio
     async def test_connect_one_drive_with_tokens_user_info_failure(
@@ -279,16 +292,18 @@ class TestEnsureValidToken:
 
     @pytest.mark.asyncio
     async def test_ensure_valid_token_no_access_token(self, service, test_user, db: Session):
-        """Test with no access token."""
+        """Test with no access token but with refresh token."""
         account = ExternalAccount(
             user_id=test_user.id,
             provider=EXTERNAL_ACCOUNT_PROVIDER.ONE_DRIVE,
             access_token=None,
-            expires_at=None,
+            expires_at=None,  # Expired or None so it doesn't return early
+            refresh_token="refresh_token_123",  # Has refresh token so it gets past that check
         )
         db.add(account)
         db.commit()
 
+        # With refresh_token present but no access_token, it should raise "No access token available"
         with pytest.raises(ValueError, match="No access token available"):
             await service._ensure_valid_token(account, session=db)
 
