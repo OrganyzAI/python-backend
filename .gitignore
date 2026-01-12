@@ -1,4 +1,3 @@
-.vscode
 node_modules/
 /test-results/
 /playwright-report/
@@ -9,3 +8,7 @@ node_modules/
 .DS_Store
 
 .env
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore

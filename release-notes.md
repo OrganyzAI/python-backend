@@ -2,6 +2,25 @@
 
 ## Latest Changes
 
+### Internal
+
+* ⬆ Bump actions/checkout from 5 to 6. PR [#2074](https://github.com/fastapi/full-stack-fastapi-template/pull/2074) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* 👷 Add pre-commit workflow. PR [#2056](https://github.com/fastapi/full-stack-fastapi-template/pull/2056) by [@YuriiMotov](https://github.com/YuriiMotov).
+* ⬆ Bump @tanstack/router-devtools from 1.140.0 to 1.142.8 in /frontend. PR [#2060](https://github.com/fastapi/full-stack-fastapi-template/pull/2060) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @tanstack/react-router from 1.141.2 to 1.142.8 in /frontend. PR [#2062](https://github.com/fastapi/full-stack-fastapi-template/pull/2062) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @biomejs/biome from 2.3.8 to 2.3.10 in /frontend. PR [#2061](https://github.com/fastapi/full-stack-fastapi-template/pull/2061) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @tanstack/react-router-devtools from 1.139.12 to 1.142.8 in /frontend. PR [#2063](https://github.com/fastapi/full-stack-fastapi-template/pull/2063) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump zod from 4.1.13 to 4.2.1 in /frontend. PR [#2064](https://github.com/fastapi/full-stack-fastapi-template/pull/2064) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* 👷 Configure coverage, error on main tests, don't wait for Smokeshow. PR [#2054](https://github.com/fastapi/full-stack-fastapi-template/pull/2054) by [@YuriiMotov](https://github.com/YuriiMotov).
+* 👷 Run Smokeshow always, even on test failures. PR [#2053](https://github.com/fastapi/full-stack-fastapi-template/pull/2053) by [@YuriiMotov](https://github.com/YuriiMotov).
+* ⬆ Bump @tanstack/react-router from 1.140.0 to 1.141.2 in /frontend. PR [#2045](https://github.com/fastapi/full-stack-fastapi-template/pull/2045) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump actions/download-artifact from 6 to 7. PR [#2051](https://github.com/fastapi/full-stack-fastapi-template/pull/2051) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump actions/upload-artifact from 5 to 6. PR [#2050](https://github.com/fastapi/full-stack-fastapi-template/pull/2050) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @types/node from 24.10.1 to 25.0.2 in /frontend. PR [#2048](https://github.com/fastapi/full-stack-fastapi-template/pull/2048) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump @tailwindcss/vite from 4.1.17 to 4.1.18 in /frontend. PR [#2049](https://github.com/fastapi/full-stack-fastapi-template/pull/2049) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump vite from 7.2.7 to 7.3.0 in /frontend. PR [#2047](https://github.com/fastapi/full-stack-fastapi-template/pull/2047) by [@dependabot[bot]](https://github.com/apps/dependabot).
+* ⬆ Bump react-dom from 19.2.1 to 19.2.3 in /frontend. PR [#2046](https://github.com/fastapi/full-stack-fastapi-template/pull/2046) by [@dependabot[bot]](https://github.com/apps/dependabot).
+
 ## 0.9.0
 
 ### Features
